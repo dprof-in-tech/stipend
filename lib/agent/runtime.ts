@@ -60,7 +60,10 @@ const phaseTemplates = [
 ];
 
 export const startAgentExecution = async (taskId: string) => {
-  updateTaskStatus(taskId, "running");
+  const started = updateTaskStatus(taskId, "running");
+  if (!started) {
+    return;
+  }
 
   for (const template of phaseTemplates) {
     const phase = addPhase(taskId, {
@@ -87,7 +90,9 @@ export const startAgentExecution = async (taskId: string) => {
 
   const bundle = getBundle(taskId);
   if (bundle) {
-    setMilestoneStatus(taskId, "submitted");
-    updateTaskStatus(taskId, "complete");
+    const submitted = setMilestoneStatus(taskId, "submitted");
+    if (submitted) {
+      updateTaskStatus(taskId, "complete");
+    }
   }
 };

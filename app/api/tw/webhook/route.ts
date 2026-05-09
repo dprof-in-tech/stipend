@@ -18,9 +18,20 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Task not found." }, { status: 404 });
   }
 
-  setMilestoneStatus(payload.taskId, payload.milestoneStatus);
+  if ((payload.milestoneStatus === "approved" || payload.milestoneStatus === "released") && bundle.task.status === "disputed") {
+    return NextResponse.json({ error: "Cannot move a disputed task to approved/released milestone states." }, { status: 409 });
+  }
+
+  const milestoneUpdated = setMilestoneStatus(payload.taskId, payload.milestoneStatus);
+  if (!milestoneUpdated) {
+    return NextResponse.json({ error: "Milestone state transition is not allowed." }, { status: 409 });
+  }
+
   if (payload.milestoneStatus === "disputed") {
-    updateTaskStatus(payload.taskId, "disputed");
+    const taskUpdated = updateTaskStatus(payload.taskId, "disputed");
+    if (!taskUpdated) {
+      return NextResponse.json({ error: "Task state transition is not allowed." }, { status: 409 });
+    }
   }
 
   return NextResponse.json({ task: getBundle(payload.taskId) });

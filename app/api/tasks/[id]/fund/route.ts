@@ -13,17 +13,29 @@ export async function POST(_request: Request, context: { params: Promise<{ id: s
     return NextResponse.json({ error: "Task not found." }, { status: 404 });
   }
 
-  const escrow = await deployEscrow(id);
-  await fundEscrow(escrow.escrowContractId);
+  if (bundle.task.status !== "planning" || bundle.task.escrow_contract_id) {
+    return NextResponse.json({ error: "Task is not eligible for funding." }, { status: 409 });
+  }
 
-  setEscrowContract(id, escrow.escrowContractId);
-  setMilestoneStatus(id, "pending");
-  updateTaskStatus(id, "funded");
+  try {
+    const escrow = await deployEscrow(id);
+    await fundEscrow(escrow.escrowContractId);
 
-  void startAgentExecution(id);
+    const escrowUpdated = setEscrowContract(id, escrow.escrowContractId);
+    const milestoneUpdated = setMilestoneStatus(id, "pending");
+    const taskUpdated = updateTaskStatus(id, "funded");
+    if (!escrowUpdated || !milestoneUpdated || !taskUpdated) {
+      return NextResponse.json({ error: "Task state transition failed while funding escrow." }, { status: 409 });
+    }
 
-  return NextResponse.json({
-    ...getBundle(id),
-    escrow,
-  });
+    void startAgentExecution(id);
+
+    return NextResponse.json({
+      ...getBundle(id),
+      escrow,
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Funding failed.";
+    return NextResponse.json({ error: message }, { status: 502 });
+  }
 }

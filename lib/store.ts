@@ -1,4 +1,6 @@
 import { createHash, randomUUID } from "crypto";
+import fs from "fs";
+import path from "path";
 import type { Milestone, Phase, Task, TaskBundle, TaskStatus, ToolCall, VerifierResult } from "@/lib/types";
 
 interface TaskState {
@@ -13,9 +15,70 @@ interface Store {
   tasks: Map<string, TaskState>;
 }
 
+interface PersistedStore {
+  tasks: TaskState[];
+}
+
+const TASK_TRANSITIONS: Record<TaskStatus, ReadonlySet<TaskStatus>> = {
+  planning: new Set(["funded", "disputed"]),
+  funded: new Set(["running", "disputed"]),
+  running: new Set(["complete", "disputed"]),
+  complete: new Set(["disputed"]),
+  disputed: new Set(),
+};
+
+const MILESTONE_TRANSITIONS: Record<Milestone["status"], ReadonlySet<Milestone["status"]>> = {
+  pending: new Set(["submitted", "disputed"]),
+  submitted: new Set(["approved", "disputed"]),
+  approved: new Set(["released", "disputed"]),
+  released: new Set(),
+  disputed: new Set(),
+};
+
+const DATA_DIRECTORY = path.join(process.cwd(), ".data");
+const STORE_PATH = path.join(DATA_DIRECTORY, "tasks-store.json");
+
+const serializeStore = (inputStore: Store): PersistedStore => ({
+  tasks: Array.from(inputStore.tasks.values()),
+});
+
+const hydrateStore = (payload: PersistedStore): Store => ({
+  tasks: new Map(payload.tasks.map((state) => [state.task.id, state])),
+});
+
+const loadStore = (): Store => {
+  if (!fs.existsSync(STORE_PATH)) {
+    return { tasks: new Map<string, TaskState>() };
+  }
+
+  try {
+    const raw = fs.readFileSync(STORE_PATH, "utf8");
+    if (!raw.trim()) {
+      return { tasks: new Map<string, TaskState>() };
+    }
+    const parsed = JSON.parse(raw) as PersistedStore;
+    if (!Array.isArray(parsed.tasks)) {
+      return { tasks: new Map<string, TaskState>() };
+    }
+    return hydrateStore(parsed);
+  } catch {
+    return { tasks: new Map<string, TaskState>() };
+  }
+};
+
+const persistStore = (inputStore: Store) => {
+  fs.mkdirSync(DATA_DIRECTORY, { recursive: true });
+  const tempPath = `${STORE_PATH}.tmp`;
+  fs.writeFileSync(tempPath, JSON.stringify(serializeStore(inputStore), null, 2), "utf8");
+  fs.renameSync(tempPath, STORE_PATH);
+};
+
+const canTransition = <T extends string>(current: T, next: T, transitions: Record<T, ReadonlySet<T>>) =>
+  current === next || transitions[current].has(next);
+
 const globalStore = globalThis as typeof globalThis & { stipendStoreGlobal?: Store };
 
-const store: Store = globalStore.stipendStoreGlobal ?? { tasks: new Map<string, TaskState>() };
+const store: Store = globalStore.stipendStoreGlobal ?? loadStore();
 if (!globalStore.stipendStoreGlobal) {
   globalStore.stipendStoreGlobal = store;
 }
@@ -76,6 +139,7 @@ export const createTask = (query: string, budgetUSDC: number): TaskBundle => {
     toolCalls: [],
     verifierResult: null,
   });
+  persistStore(store);
 
   return getBundle(id)!;
 };
@@ -83,28 +147,42 @@ export const createTask = (query: string, budgetUSDC: number): TaskBundle => {
 export const updateTaskStatus = (id: string, status: TaskStatus) => {
   const state = store.tasks.get(id);
   if (!state) {
-    return;
+    return false;
+  }
+
+  if (!canTransition(state.task.status, status, TASK_TRANSITIONS)) {
+    return false;
   }
 
   state.task.status = status;
+  persistStore(store);
+  return true;
 };
 
 export const setEscrowContract = (id: string, contractId: string) => {
   const state = store.tasks.get(id);
   if (!state) {
-    return;
+    return false;
   }
 
   state.task.escrow_contract_id = contractId;
+  persistStore(store);
+  return true;
 };
 
 export const setMilestoneStatus = (id: string, status: Milestone["status"]) => {
   const state = store.tasks.get(id);
   if (!state) {
-    return;
+    return false;
+  }
+
+  if (!canTransition(state.milestone.status, status, MILESTONE_TRANSITIONS)) {
+    return false;
   }
 
   state.milestone.status = status;
+  persistStore(store);
+  return true;
 };
 
 export const addPhase = (taskId: string, input: Omit<Phase, "id" | "task_id" | "artifact_hash">) => {
@@ -122,6 +200,7 @@ export const addPhase = (taskId: string, input: Omit<Phase, "id" | "task_id" | "
   };
 
   state.phases.push(phase);
+  persistStore(store);
   return phase;
 };
 
@@ -145,6 +224,7 @@ export const addToolCall = (taskId: string, input: Omit<ToolCall, "id">) => {
   };
 
   state.toolCalls.push(call);
+  persistStore(store);
   return call;
 };
 
@@ -156,8 +236,7 @@ export const setVerifierResult = (taskId: string, result: VerifierResult) => {
 
   state.verifierResult = result;
   state.milestone.verifier_score = result;
-  state.milestone.status = result.approved ? "approved" : "disputed";
-  state.task.status = result.approved ? "complete" : "disputed";
+  persistStore(store);
 };
 
 export const getVerifierResult = (taskId: string) => store.tasks.get(taskId)?.verifierResult ?? null;

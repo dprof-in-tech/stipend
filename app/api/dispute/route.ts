@@ -16,9 +16,25 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Task not found." }, { status: 404 });
   }
 
-  await disputeEscrow();
-  setMilestoneStatus(payload.taskId, "disputed");
-  updateTaskStatus(payload.taskId, "disputed");
+  if (!bundle.task.escrow_contract_id) {
+    return NextResponse.json({ error: "Task has no escrow contract." }, { status: 409 });
+  }
+
+  if (bundle.milestone.status === "released" || bundle.milestone.status === "disputed" || bundle.task.status === "disputed") {
+    return NextResponse.json({ error: "Task is not eligible for dispute." }, { status: 409 });
+  }
+
+  try {
+    await disputeEscrow(bundle.task.escrow_contract_id);
+    const milestoneUpdated = setMilestoneStatus(payload.taskId, "disputed");
+    const taskUpdated = updateTaskStatus(payload.taskId, "disputed");
+    if (!milestoneUpdated || !taskUpdated) {
+      return NextResponse.json({ error: "Dispute transition is not allowed." }, { status: 409 });
+    }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Dispute request failed.";
+    return NextResponse.json({ error: message }, { status: 502 });
+  }
 
   return NextResponse.json({ task: getBundle(payload.taskId) });
 }

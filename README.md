@@ -20,6 +20,21 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000).
 
+### Required environment variables
+
+The escrow/wallet flow now calls Trustless Work APIs directly and requires:
+
+- `TW_API_BASE_URL`
+- `TW_API_KEY`
+- `STELLAR_AGENT_PUBLIC_KEY`
+- `STELLAR_VERIFIER_PUBLIC_KEY`
+
+Without these values, escrow and wallet operations will fail fast.
+
+### Persistence
+
+Task state is persisted to `/.data/tasks-store.json` so API and SSE state survives server restarts in the same environment.
+
 ## API routes
 
 - `POST /api/tasks` create task
@@ -28,3 +43,5 @@ Open [http://localhost:3000](http://localhost:3000).
 - `POST /api/verifier` run verifier and release decision
 - `POST /api/dispute` dispute flow
 - `POST /api/tw/webhook` Trustless Work webhook receiver
+
+The API now enforces lifecycle guardrails and rejects conflicting transitions with `409` responses.
