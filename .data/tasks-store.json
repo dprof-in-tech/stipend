@@ -1,0 +1,292 @@
+{
+  "tasks": [
+    {
+      "task": {
+        "id": "76b0c0f4-0662-44eb-b5d8-06368405700d",
+        "query": "Guard checks",
+        "budget_usdc": "2.0000",
+        "status": "complete",
+        "escrow_contract_id": "escrow-76b0c0f4-0662-44eb-b5d8-06368405700d",
+        "created_at": "2026-05-09T19:53:18.872Z"
+      },
+      "milestone": {
+        "id": "8850f93c-329c-4ba0-8702-94ff9d1747cf",
+        "task_id": "76b0c0f4-0662-44eb-b5d8-06368405700d",
+        "title": "Research delivery",
+        "amount_usdc": "2.0000",
+        "status": "released",
+        "verifier_score": {
+          "approved": true,
+          "averageScore": 4.2,
+          "scores": {
+            "interpretation": 4,
+            "coverage": 4,
+            "evidence": 4,
+            "reasoning": 4,
+            "citations": 5
+          },
+          "reasons": [
+            "Verifier approved output under v1 rubric."
+          ],
+          "fabricatedCitation": false
+        }
+      },
+      "phases": [
+        {
+          "id": "79e8eac2-8cf4-4b06-94a7-12d724044723",
+          "task_id": "76b0c0f4-0662-44eb-b5d8-06368405700d",
+          "artifact_hash": "a2cc24022dc3b60c61ecb396c46c3a0aa3f407d766f60d3c1c746ec79455aaa4",
+          "kind": "decompose",
+          "title": "Clarify question framing",
+          "artifact_url": "memory://phase/76b0c0f4-0662-44eb-b5d8-06368405700d/decompose",
+          "content": "Define objective, constraints, and key terms before collecting evidence.",
+          "citations": [
+            "https://developers.stellar.org/docs/learn/fundamentals/stellar-data-structures/"
+          ]
+        },
+        {
+          "id": "4d0fb75c-b38d-476c-9d7e-9f3336a4fb88",
+          "task_id": "76b0c0f4-0662-44eb-b5d8-06368405700d",
+          "artifact_hash": "67d2634571dcc234f443a39972277ed296c28ed844bfab26ba10bafac96e94b7",
+          "kind": "enumerate",
+          "title": "Enumerate candidate sources",
+          "artifact_url": "memory://phase/76b0c0f4-0662-44eb-b5d8-06368405700d/enumerate",
+          "content": "Collect candidate docs: Stellar, Trustless Work, and model-provider specs.",
+          "citations": [
+            "https://trustlesswork.com",
+            "https://platform.openai.com/docs/overview"
+          ]
+        },
+        {
+          "id": "78fe5de9-2e8d-40df-adf9-b0d782c03163",
+          "task_id": "76b0c0f4-0662-44eb-b5d8-06368405700d",
+          "artifact_hash": "4c6ce8a0a8ca4f1bb2d43e72e9c61ab6ee2ca13793e52f3ec7f07e8692e7a191",
+          "kind": "source",
+          "title": "Collect and normalize evidence",
+          "artifact_url": "memory://phase/76b0c0f4-0662-44eb-b5d8-06368405700d/source",
+          "content": "Fetch and hash evidence artifacts so each claim can point to a retrieved source.",
+          "citations": [
+            "https://nextjs.org/docs/app/building-your-application/routing/route-handlers"
+          ]
+        },
+        {
+          "id": "66238764-3953-4a88-915b-ccf764df770b",
+          "task_id": "76b0c0f4-0662-44eb-b5d8-06368405700d",
+          "artifact_hash": "84de4301bf50345cbc53e2b3cc484653a5a4ccb11103d26bf325efe8c5af0040",
+          "kind": "compare",
+          "title": "Compare implementation options",
+          "artifact_url": "memory://phase/76b0c0f4-0662-44eb-b5d8-06368405700d/compare",
+          "content": "Contrast options against budget caps, timeout controls, and verifier gating requirements.",
+          "citations": [
+            "https://developers.stellar.org/docs/build/guides/transactions/"
+          ]
+        },
+        {
+          "id": "d9652f33-a412-4fff-b70d-8979905920d6",
+          "task_id": "76b0c0f4-0662-44eb-b5d8-06368405700d",
+          "artifact_hash": "265cb2a4e1cb26c7a75db10b7b926bacb2735818feba65f92c15ae5308f80d4c",
+          "kind": "synthesize",
+          "title": "Produce final synthesis",
+          "artifact_url": "memory://phase/76b0c0f4-0662-44eb-b5d8-06368405700d/synthesize",
+          "content": "Stipend v1 uses escrow-gated execution: funds lock first, agent work streams live, verifier approves evidence-backed output before release [1][2].",
+          "citations": [
+            "https://trustlesswork.com",
+            "https://developers.stellar.org/docs/"
+          ]
+        }
+      ],
+      "toolCalls": [
+        {
+          "id": "1760a43d-9d3b-4f35-b46c-979608d2e147",
+          "phase_id": "79e8eac2-8cf4-4b06-94a7-12d724044723",
+          "kind": "llm",
+          "provider": "anthropic-claude",
+          "settlement": "operator",
+          "amount_usdc": "0.0800",
+          "tx_hash": null
+        },
+        {
+          "id": "a5952f71-d7d1-44c8-807b-2b6e5e454582",
+          "phase_id": "4d0fb75c-b38d-476c-9d7e-9f3336a4fb88",
+          "kind": "search",
+          "provider": "web-search",
+          "settlement": "operator",
+          "amount_usdc": "0.0200",
+          "tx_hash": null
+        },
+        {
+          "id": "6c3a0064-8783-499c-ae18-17485e9910db",
+          "phase_id": "78fe5de9-2e8d-40df-adf9-b0d782c03163",
+          "kind": "fetch",
+          "provider": "web-fetch",
+          "settlement": "operator",
+          "amount_usdc": "0.0300",
+          "tx_hash": null
+        },
+        {
+          "id": "75c6113d-ccc5-41d3-8bd4-e02e0ae88891",
+          "phase_id": "66238764-3953-4a88-915b-ccf764df770b",
+          "kind": "x402",
+          "provider": "x402-search-provider",
+          "settlement": "x402",
+          "amount_usdc": "0.0100",
+          "tx_hash": "c1d57b1ce60246e78ea4c78192e7dd52"
+        },
+        {
+          "id": "0425ec1a-f627-4b9e-8945-fdf49141fa86",
+          "phase_id": "d9652f33-a412-4fff-b70d-8979905920d6",
+          "kind": "llm",
+          "provider": "anthropic-claude",
+          "settlement": "operator",
+          "amount_usdc": "0.0500",
+          "tx_hash": null
+        }
+      ],
+      "verifierResult": {
+        "approved": true,
+        "averageScore": 4.2,
+        "scores": {
+          "interpretation": 4,
+          "coverage": 4,
+          "evidence": 4,
+          "reasoning": 4,
+          "citations": 5
+        },
+        "reasons": [
+          "Verifier approved output under v1 rubric."
+        ],
+        "fabricatedCitation": false
+      }
+    },
+    {
+      "task": {
+        "id": "1ba9b997-1995-47dd-8250-02ebd145dad4",
+        "query": "Dispute then webhook",
+        "budget_usdc": "2.0000",
+        "status": "disputed",
+        "escrow_contract_id": "escrow-1ba9b997-1995-47dd-8250-02ebd145dad4",
+        "created_at": "2026-05-09T19:53:21.412Z"
+      },
+      "milestone": {
+        "id": "f5ec35e6-95cd-4642-8129-5be3cb45ddab",
+        "task_id": "1ba9b997-1995-47dd-8250-02ebd145dad4",
+        "title": "Research delivery",
+        "amount_usdc": "2.0000",
+        "status": "disputed",
+        "verifier_score": null
+      },
+      "phases": [
+        {
+          "id": "61c5709c-c594-4495-bbd2-907a81cafa43",
+          "task_id": "1ba9b997-1995-47dd-8250-02ebd145dad4",
+          "artifact_hash": "a2cc24022dc3b60c61ecb396c46c3a0aa3f407d766f60d3c1c746ec79455aaa4",
+          "kind": "decompose",
+          "title": "Clarify question framing",
+          "artifact_url": "memory://phase/1ba9b997-1995-47dd-8250-02ebd145dad4/decompose",
+          "content": "Define objective, constraints, and key terms before collecting evidence.",
+          "citations": [
+            "https://developers.stellar.org/docs/learn/fundamentals/stellar-data-structures/"
+          ]
+        },
+        {
+          "id": "f595109d-53e4-43f3-aada-1fca6a2d441b",
+          "task_id": "1ba9b997-1995-47dd-8250-02ebd145dad4",
+          "artifact_hash": "67d2634571dcc234f443a39972277ed296c28ed844bfab26ba10bafac96e94b7",
+          "kind": "enumerate",
+          "title": "Enumerate candidate sources",
+          "artifact_url": "memory://phase/1ba9b997-1995-47dd-8250-02ebd145dad4/enumerate",
+          "content": "Collect candidate docs: Stellar, Trustless Work, and model-provider specs.",
+          "citations": [
+            "https://trustlesswork.com",
+            "https://platform.openai.com/docs/overview"
+          ]
+        },
+        {
+          "id": "85891b94-2c37-4751-be4c-1cff3e32a634",
+          "task_id": "1ba9b997-1995-47dd-8250-02ebd145dad4",
+          "artifact_hash": "4c6ce8a0a8ca4f1bb2d43e72e9c61ab6ee2ca13793e52f3ec7f07e8692e7a191",
+          "kind": "source",
+          "title": "Collect and normalize evidence",
+          "artifact_url": "memory://phase/1ba9b997-1995-47dd-8250-02ebd145dad4/source",
+          "content": "Fetch and hash evidence artifacts so each claim can point to a retrieved source.",
+          "citations": [
+            "https://nextjs.org/docs/app/building-your-application/routing/route-handlers"
+          ]
+        },
+        {
+          "id": "98e67270-01ae-4134-b3ac-042bab3f2fe6",
+          "task_id": "1ba9b997-1995-47dd-8250-02ebd145dad4",
+          "artifact_hash": "84de4301bf50345cbc53e2b3cc484653a5a4ccb11103d26bf325efe8c5af0040",
+          "kind": "compare",
+          "title": "Compare implementation options",
+          "artifact_url": "memory://phase/1ba9b997-1995-47dd-8250-02ebd145dad4/compare",
+          "content": "Contrast options against budget caps, timeout controls, and verifier gating requirements.",
+          "citations": [
+            "https://developers.stellar.org/docs/build/guides/transactions/"
+          ]
+        },
+        {
+          "id": "c6e88384-f6d5-49cc-a3ae-5778f8e24a55",
+          "task_id": "1ba9b997-1995-47dd-8250-02ebd145dad4",
+          "artifact_hash": "265cb2a4e1cb26c7a75db10b7b926bacb2735818feba65f92c15ae5308f80d4c",
+          "kind": "synthesize",
+          "title": "Produce final synthesis",
+          "artifact_url": "memory://phase/1ba9b997-1995-47dd-8250-02ebd145dad4/synthesize",
+          "content": "Stipend v1 uses escrow-gated execution: funds lock first, agent work streams live, verifier approves evidence-backed output before release [1][2].",
+          "citations": [
+            "https://trustlesswork.com",
+            "https://developers.stellar.org/docs/"
+          ]
+        }
+      ],
+      "toolCalls": [
+        {
+          "id": "abd87cb6-88e0-4d5d-807c-8ca4965c14a7",
+          "phase_id": "61c5709c-c594-4495-bbd2-907a81cafa43",
+          "kind": "llm",
+          "provider": "anthropic-claude",
+          "settlement": "operator",
+          "amount_usdc": "0.0800",
+          "tx_hash": null
+        },
+        {
+          "id": "62aead4a-0849-4543-9556-4174354a0f6e",
+          "phase_id": "f595109d-53e4-43f3-aada-1fca6a2d441b",
+          "kind": "search",
+          "provider": "web-search",
+          "settlement": "operator",
+          "amount_usdc": "0.0200",
+          "tx_hash": null
+        },
+        {
+          "id": "f056c4d0-a5a7-4a79-8e6e-8460fc81f75c",
+          "phase_id": "85891b94-2c37-4751-be4c-1cff3e32a634",
+          "kind": "fetch",
+          "provider": "web-fetch",
+          "settlement": "operator",
+          "amount_usdc": "0.0300",
+          "tx_hash": null
+        },
+        {
+          "id": "837317e9-7c73-4b13-8750-b86f0f758143",
+          "phase_id": "98e67270-01ae-4134-b3ac-042bab3f2fe6",
+          "kind": "x402",
+          "provider": "x402-search-provider",
+          "settlement": "x402",
+          "amount_usdc": "0.0100",
+          "tx_hash": "938fb9e60a1e4daf9de4b402cab4e3eb"
+        },
+        {
+          "id": "59fe114d-cab2-4aeb-afbf-f1a88ab3b81e",
+          "phase_id": "c6e88384-f6d5-49cc-a3ae-5778f8e24a55",
+          "kind": "llm",
+          "provider": "anthropic-claude",
+          "settlement": "operator",
+          "amount_usdc": "0.0500",
+          "tx_hash": null
+        }
+      ],
+      "verifierResult": null
+    }
+  ]
+}

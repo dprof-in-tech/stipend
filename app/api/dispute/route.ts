@@ -27,7 +27,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Dispute transition is not allowed." }, { status: 409 });
     }
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Dispute request failed.";
+    const message =
+      error instanceof Error ? error.message : "An unexpected error occurred while processing the dispute request.";
     return NextResponse.json({ error: message }, { status: 502 });
   }
 

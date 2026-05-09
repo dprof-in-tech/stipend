@@ -35,7 +35,7 @@ const MILESTONE_TRANSITIONS: Record<Milestone["status"], ReadonlySet<Milestone["
   disputed: new Set(),
 };
 
-const DATA_DIRECTORY = path.join(process.cwd(), ".data");
+const DATA_DIRECTORY = path.join(process.cwd(), "data");
 const STORE_PATH = path.join(DATA_DIRECTORY, "tasks-store.json");
 
 const serializeStore = (inputStore: Store): PersistedStore => ({
@@ -73,7 +73,7 @@ const persistStore = (inputStore: Store) => {
     fs.writeFileSync(tempStorePath, JSON.stringify(serializeStore(inputStore), null, 2), "utf8");
     fs.renameSync(tempStorePath, STORE_PATH);
   } catch (error) {
-    console.error("Failed to persist task store:", error);
+    console.error(`Failed to persist task store at ${STORE_PATH}. Check file permissions and free disk space.`, error);
     throw error;
   }
 };

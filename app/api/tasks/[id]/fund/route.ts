@@ -35,7 +35,7 @@ export async function POST(_request: Request, context: { params: Promise<{ id: s
       escrow,
     });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Funding failed.";
+    const message = error instanceof Error ? error.message : "An unexpected error occurred during escrow funding.";
     return NextResponse.json({ error: message }, { status: 502 });
   }
 }

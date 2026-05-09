@@ -33,7 +33,7 @@ Without these values, escrow and wallet operations will fail fast.
 
 ### Persistence
 
-Task state is persisted to `/.data/tasks-store.json` so API and SSE state survives server restarts in the same environment.
+Task state is persisted to `/data/tasks-store.json` so API and SSE state survives server restarts in the same environment.
 
 ## API routes
 

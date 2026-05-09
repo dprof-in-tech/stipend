@@ -53,7 +53,7 @@ export async function POST(request: Request) {
       }
     }
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Verifier settlement failed.";
+    const message = error instanceof Error ? error.message : "An unexpected error occurred during verification settlement.";
     return NextResponse.json({ error: message }, { status: 502 });
   }
 
