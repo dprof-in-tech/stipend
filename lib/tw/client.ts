@@ -11,8 +11,8 @@ export const deployEscrow = async (taskId: string) => ({
 });
 
 export const fundEscrow = async (escrowContractId: string) => {
-  void escrowContractId;
   return {
+    escrowContractId,
     fundTxHash: randomUUID().replaceAll("-", ""),
   };
 };
