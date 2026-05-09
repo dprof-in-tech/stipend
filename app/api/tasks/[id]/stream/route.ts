@@ -3,6 +3,7 @@ import { getBundle } from "@/lib/store";
 export const runtime = "nodejs";
 
 const encoder = new TextEncoder();
+const SSE_POLL_INTERVAL_MS = 350;
 
 export async function GET(request: Request, context: { params: Promise<{ id: string }> }) {
   const { id } = await context.params;
@@ -41,7 +42,6 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
         }
       };
 
-      const SSE_POLL_INTERVAL_MS = 350;
       interval = setInterval(sendSnapshot, SSE_POLL_INTERVAL_MS);
       sendSnapshot();
 

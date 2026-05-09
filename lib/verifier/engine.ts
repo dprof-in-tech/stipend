@@ -9,17 +9,19 @@ const RUBRIC_SCORE_STRONG_CITATIONS = 5;
 export const runAdversarialVerifier = (bundle: TaskBundle): VerifierResult => {
   const knownCitations = new Set(bundle.phases.flatMap((phase) => phase.citations));
   const synthesis = bundle.phases.find((phase) => phase.kind === "synthesize");
+  const synthesisCitations = synthesis?.citations ?? [];
+  const missingSynthesis = !synthesis;
 
-  const hasFabricatedCitation = (synthesis?.citations ?? []).some((citation) => !knownCitations.has(citation));
+  const hasFabricatedCitation = synthesisCitations.some((citation) => !knownCitations.has(citation));
 
   const scores: VerifierResult["scores"] = {
     interpretation: RUBRIC_SCORE_BASELINE,
     coverage: RUBRIC_SCORE_BASELINE,
-    evidence: synthesis?.citations.length ? RUBRIC_SCORE_BASELINE : RUBRIC_SCORE_MISSING_CITATIONS,
+    evidence: synthesisCitations.length ? RUBRIC_SCORE_BASELINE : RUBRIC_SCORE_MISSING_CITATIONS,
     reasoning: RUBRIC_SCORE_BASELINE,
     citations: hasFabricatedCitation
       ? RUBRIC_SCORE_FABRICATED_CITATION
-      : synthesis?.citations.length
+      : synthesisCitations.length
         ? RUBRIC_SCORE_STRONG_CITATIONS
         : RUBRIC_SCORE_MISSING_CITATIONS,
   };
@@ -28,9 +30,12 @@ export const runAdversarialVerifier = (bundle: TaskBundle): VerifierResult => {
   const averageScore = Number((values.reduce((sum, score) => sum + score, 0) / values.length).toFixed(2));
   const minScore = Math.min(...values);
 
-  const approved = averageScore >= 4 && minScore >= 3 && !hasFabricatedCitation;
+  const approved = averageScore >= 4 && minScore >= 3 && !hasFabricatedCitation && !missingSynthesis;
 
   const reasons: string[] = [];
+  if (missingSynthesis) {
+    reasons.push("Missing synthesize phase output.");
+  }
   if (hasFabricatedCitation) {
     reasons.push("Fabricated citation detected.");
   }

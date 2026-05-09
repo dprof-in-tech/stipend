@@ -136,6 +136,7 @@ export function StipendApp() {
           Task input
         </label>
         <textarea
+          aria-label="Task query"
           id="query"
           className="min-h-24 rounded border p-2"
           value={query}
@@ -147,6 +148,9 @@ export function StipendApp() {
         </label>
         <input
           id="budget"
+          type="number"
+          step="0.01"
+          min="0.01"
           className="w-40 rounded border p-2"
           value={budget}
           onChange={(event) => setBudget(event.target.value)}
