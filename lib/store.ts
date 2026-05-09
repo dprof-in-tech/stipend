@@ -68,7 +68,7 @@ const loadStore = (): Store => {
 
 const persistStore = (inputStore: Store) => {
   fs.mkdirSync(DATA_DIRECTORY, { recursive: true });
-  const tempStorePath = `${STORE_PATH}.tmp`;
+  const tempStorePath = path.join(DATA_DIRECTORY, "tasks-store.json.tmp");
   try {
     fs.writeFileSync(tempStorePath, JSON.stringify(serializeStore(inputStore), null, 2), "utf8");
     fs.renameSync(tempStorePath, STORE_PATH);
@@ -259,12 +259,13 @@ export const markDisputed = (taskId: string) => {
 export const recordVerifierResult = (taskId: string, result: VerifierResult) => {
   const state = store.tasks.get(taskId);
   if (!state) {
-    return;
+    return false;
   }
 
   state.verifierResult = result;
   state.milestone.verifier_score = result;
   persistStore(store);
+  return true;
 };
 
 export const getVerifierResult = (taskId: string) => store.tasks.get(taskId)?.verifierResult ?? null;
