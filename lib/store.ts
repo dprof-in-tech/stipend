@@ -68,13 +68,18 @@ const loadStore = (): Store => {
 
 const persistStore = (inputStore: Store) => {
   fs.mkdirSync(DATA_DIRECTORY, { recursive: true });
-  const tempPath = `${STORE_PATH}.tmp`;
-  fs.writeFileSync(tempPath, JSON.stringify(serializeStore(inputStore), null, 2), "utf8");
-  fs.renameSync(tempPath, STORE_PATH);
+  const tempStorePath = `${STORE_PATH}.tmp`;
+  fs.writeFileSync(tempStorePath, JSON.stringify(serializeStore(inputStore), null, 2), "utf8");
+  fs.renameSync(tempStorePath, STORE_PATH);
 };
 
-const canTransition = <T extends string>(current: T, next: T, transitions: Record<T, ReadonlySet<T>>) =>
-  current === next || transitions[current].has(next);
+const canTransition = <T extends string>(current: T, next: T, transitions: Record<T, ReadonlySet<T>>) => {
+  if (current === next) {
+    return true;
+  }
+
+  return transitions[current].has(next);
+};
 
 const globalStore = globalThis as typeof globalThis & { stipendStoreGlobal?: Store };
 

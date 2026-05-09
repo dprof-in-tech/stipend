@@ -34,7 +34,7 @@ const getConfig = (): TrustlessWorkConfig => {
 const extractTxHash = (payload: TrustlessWorkResponse): string => {
   const txHash = payload.txHash ?? payload.tx_hash ?? payload.hash;
   if (!txHash) {
-    throw new Error("Trustless Work response did not include a transaction hash.");
+    throw new Error("Trustless Work response missing transaction hash (checked txHash, tx_hash, hash).");
   }
   return txHash;
 };
@@ -65,7 +65,7 @@ export const deployEscrow = async (taskId: string): Promise<EscrowDeployment> =>
   const payload = await twRequest<TrustlessWorkResponse>("/v1/escrows/deploy", { taskId });
   const escrowContractId = payload.escrowContractId ?? payload.escrow_contract_id;
   if (!escrowContractId) {
-    throw new Error("Trustless Work response did not include an escrow contract id.");
+    throw new Error("Trustless Work response missing escrow contract ID (checked escrowContractId, escrow_contract_id).");
   }
 
   return {

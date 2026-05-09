@@ -45,7 +45,16 @@ export async function POST(request: Request) {
       const disputedMilestone = setMilestoneStatus(payload.taskId, "disputed");
       const disputedTask = updateTaskStatus(payload.taskId, "disputed");
       if (!disputedMilestone || !disputedTask) {
-        return NextResponse.json({ error: "Verifier rejection could not transition task to disputed." }, { status: 409 });
+        return NextResponse.json(
+          {
+            error: "Verifier rejection could not transition task to disputed.",
+            details: {
+              disputedMilestone,
+              disputedTask,
+            },
+          },
+          { status: 409 },
+        );
       }
     }
   } catch (error) {
