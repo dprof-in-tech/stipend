@@ -74,6 +74,7 @@ const persistStore = (inputStore: Store) => {
     fs.renameSync(tempStorePath, STORE_PATH);
   } catch (error) {
     console.error("Failed to persist task store:", error);
+    throw error;
   }
 };
 
@@ -255,7 +256,7 @@ export const markDisputed = (taskId: string) => {
   return true;
 };
 
-export const setVerifierResult = (taskId: string, result: VerifierResult) => {
+export const recordVerifierResult = (taskId: string, result: VerifierResult) => {
   const state = store.tasks.get(taskId);
   if (!state) {
     return;

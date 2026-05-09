@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getBundle, markDisputed, setMilestoneStatus, setVerifierResult } from "@/lib/store";
+import { getBundle, markDisputed, recordVerifierResult, setMilestoneStatus } from "@/lib/store";
 import { approveMilestone, releaseFunds } from "@/lib/tw/client";
 import { runAdversarialVerifier } from "@/lib/verifier/engine";
 
@@ -26,7 +26,7 @@ export async function POST(request: Request) {
   }
 
   const result = runAdversarialVerifier(bundle);
-  setVerifierResult(payload.taskId, result);
+  recordVerifierResult(payload.taskId, result);
 
   try {
     if (result.approved) {

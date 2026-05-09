@@ -25,17 +25,7 @@ export async function POST(_request: Request, context: { params: Promise<{ id: s
     const milestoneUpdated = setMilestoneStatus(id, "pending");
     const taskUpdated = updateTaskStatus(id, "funded");
     if (!escrowUpdated || !milestoneUpdated || !taskUpdated) {
-      return NextResponse.json(
-        {
-          error: "Task state transition failed while funding escrow.",
-          details: {
-            escrowUpdated,
-            milestoneUpdated,
-            taskUpdated,
-          },
-        },
-        { status: 409 },
-      );
+      return NextResponse.json({ error: "Task state transition failed while funding escrow." }, { status: 409 });
     }
 
     void startAgentExecution(id);

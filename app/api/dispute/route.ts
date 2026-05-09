@@ -20,10 +20,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Task has no escrow contract." }, { status: 409 });
   }
 
-  if (bundle.milestone.status === "released" || bundle.milestone.status === "disputed" || bundle.task.status === "disputed") {
-    return NextResponse.json({ error: "Task is not eligible for dispute." }, { status: 409 });
-  }
-
   try {
     await disputeEscrow(bundle.task.escrow_contract_id);
     const disputed = markDisputed(payload.taskId);
