@@ -69,8 +69,12 @@ const loadStore = (): Store => {
 const persistStore = (inputStore: Store) => {
   fs.mkdirSync(DATA_DIRECTORY, { recursive: true });
   const tempStorePath = `${STORE_PATH}.tmp`;
-  fs.writeFileSync(tempStorePath, JSON.stringify(serializeStore(inputStore), null, 2), "utf8");
-  fs.renameSync(tempStorePath, STORE_PATH);
+  try {
+    fs.writeFileSync(tempStorePath, JSON.stringify(serializeStore(inputStore), null, 2), "utf8");
+    fs.renameSync(tempStorePath, STORE_PATH);
+  } catch (error) {
+    console.error("Failed to persist task store:", error);
+  }
 };
 
 const canTransition = <T extends string>(current: T, next: T, transitions: Record<T, ReadonlySet<T>>) => {
@@ -231,6 +235,24 @@ export const addToolCall = (taskId: string, input: Omit<ToolCall, "id">) => {
   state.toolCalls.push(call);
   persistStore(store);
   return call;
+};
+
+export const markDisputed = (taskId: string) => {
+  const state = store.tasks.get(taskId);
+  if (!state) {
+    return false;
+  }
+
+  const canUpdateTask = canTransition(state.task.status, "disputed", TASK_TRANSITIONS);
+  const canUpdateMilestone = canTransition(state.milestone.status, "disputed", MILESTONE_TRANSITIONS);
+  if (!canUpdateTask || !canUpdateMilestone) {
+    return false;
+  }
+
+  state.task.status = "disputed";
+  state.milestone.status = "disputed";
+  persistStore(store);
+  return true;
 };
 
 export const setVerifierResult = (taskId: string, result: VerifierResult) => {

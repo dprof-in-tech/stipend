@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getBundle, setMilestoneStatus, setVerifierResult, updateTaskStatus } from "@/lib/store";
+import { getBundle, markDisputed, setMilestoneStatus, setVerifierResult } from "@/lib/store";
 import { approveMilestone, releaseFunds } from "@/lib/tw/client";
 import { runAdversarialVerifier } from "@/lib/verifier/engine";
 
@@ -42,16 +42,11 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: "Milestone cannot transition to released state." }, { status: 409 });
       }
     } else {
-      const disputedMilestone = setMilestoneStatus(payload.taskId, "disputed");
-      const disputedTask = updateTaskStatus(payload.taskId, "disputed");
-      if (!disputedMilestone || !disputedTask) {
+      const disputed = markDisputed(payload.taskId);
+      if (!disputed) {
         return NextResponse.json(
           {
             error: "Verifier rejection could not transition task to disputed.",
-            details: {
-              disputedMilestone,
-              disputedTask,
-            },
           },
           { status: 409 },
         );

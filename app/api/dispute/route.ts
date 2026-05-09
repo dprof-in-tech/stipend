@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getBundle, setMilestoneStatus, updateTaskStatus } from "@/lib/store";
+import { getBundle, markDisputed } from "@/lib/store";
 import { disputeEscrow } from "@/lib/tw/client";
 
 export const runtime = "nodejs";
@@ -26,9 +26,8 @@ export async function POST(request: Request) {
 
   try {
     await disputeEscrow(bundle.task.escrow_contract_id);
-    const milestoneUpdated = setMilestoneStatus(payload.taskId, "disputed");
-    const taskUpdated = updateTaskStatus(payload.taskId, "disputed");
-    if (!milestoneUpdated || !taskUpdated) {
+    const disputed = markDisputed(payload.taskId);
+    if (!disputed) {
       return NextResponse.json({ error: "Dispute transition is not allowed." }, { status: 409 });
     }
   } catch (error) {

@@ -53,7 +53,16 @@ const twRequest = async <T extends TrustlessWorkResponse>(
     body: JSON.stringify(body),
   });
 
-  const payload = (await response.json().catch(() => ({}))) as T & { error?: string; message?: string };
+  const rawBody = await response.text();
+  let payload = {} as T & { error?: string; message?: string };
+  if (rawBody) {
+    try {
+      payload = JSON.parse(rawBody) as T & { error?: string; message?: string };
+    } catch {
+      throw new Error("Trustless Work response was not valid JSON.");
+    }
+  }
+
   if (!response.ok) {
     throw new Error(payload.error ?? payload.message ?? `Trustless Work request failed with status ${response.status}.`);
   }
