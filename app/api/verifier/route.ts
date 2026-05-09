@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getBundle, setMilestoneStatus, setVerifierResult } from "@/lib/store";
+import { getBundle, setMilestoneStatus, setVerifierResult, updateTaskStatus } from "@/lib/store";
 import { approveMilestone, releaseFunds } from "@/lib/tw/client";
 import { runAdversarialVerifier } from "@/lib/verifier/engine";
 
@@ -17,7 +17,14 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Task not found." }, { status: 404 });
   }
 
-  const result = runAdversarialVerifier(bundle);
+  if (bundle.task.status !== "complete") {
+    return NextResponse.json(
+      { error: "Agent must finish execution before verification." },
+      { status: 409 },
+    );
+  }
+
+  const result = await runAdversarialVerifier(bundle);
   setVerifierResult(payload.taskId, result);
 
   if (result.approved) {
@@ -25,6 +32,10 @@ export async function POST(request: Request) {
     setMilestoneStatus(payload.taskId, "approved");
     await releaseFunds();
     setMilestoneStatus(payload.taskId, "released");
+    updateTaskStatus(payload.taskId, "complete");
+  } else {
+    setMilestoneStatus(payload.taskId, "disputed");
+    updateTaskStatus(payload.taskId, "disputed");
   }
 
   return NextResponse.json({ result, task: getBundle(payload.taskId) });

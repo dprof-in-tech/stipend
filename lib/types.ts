@@ -1,10 +1,5 @@
 export type TaskStatus = "planning" | "funded" | "running" | "complete" | "disputed";
-export type MilestoneStatus =
-  | "pending"
-  | "submitted"
-  | "approved"
-  | "released"
-  | "disputed";
+export type MilestoneStatus = "pending" | "submitted" | "approved" | "released" | "disputed";
 export type PhaseKind = "decompose" | "enumerate" | "source" | "compare" | "synthesize";
 export type ToolKind = "llm" | "search" | "fetch" | "x402";
 
@@ -47,6 +42,14 @@ export interface ToolCall {
   tx_hash: string | null;
 }
 
+export interface CitationRecheck {
+  url: string;
+  claimed_quote: string;
+  found: boolean;
+  fetch_succeeded: boolean;
+  notes: string;
+}
+
 export interface VerifierResult {
   approved: boolean;
   averageScore: number;
@@ -59,6 +62,8 @@ export interface VerifierResult {
   };
   reasons: string[];
   fabricatedCitation: boolean;
+  citationRecheck?: CitationRecheck;
+  rationale?: string;
 }
 
 export interface TaskBundle {

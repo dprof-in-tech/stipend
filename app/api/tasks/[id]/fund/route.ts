@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { startAgentExecution } from "@/lib/agent/runtime";
 import { getBundle, setEscrowContract, setMilestoneStatus, updateTaskStatus } from "@/lib/store";
 import { deployEscrow, fundEscrow } from "@/lib/tw/client";
+import { getServerManagedWallet } from "@/lib/stellar/wallet";
 
 export const runtime = "nodejs";
 
@@ -13,7 +14,22 @@ export async function POST(_request: Request, context: { params: Promise<{ id: s
     return NextResponse.json({ error: "Task not found." }, { status: 404 });
   }
 
-  const escrow = await deployEscrow(id);
+  if (bundle.task.status !== "planning") {
+    return NextResponse.json(
+      { error: "Task has already been funded or is in a terminal state." },
+      { status: 409 },
+    );
+  }
+
+  const agentWallet = getServerManagedWallet("agent");
+  const verifierWallet = getServerManagedWallet("verifier");
+
+  const escrow = await deployEscrow(id, {
+    budgetUsdc: bundle.task.budget_usdc,
+    agentAddress: agentWallet.publicKey,
+    verifierAddress: verifierWallet.publicKey,
+  });
+
   await fundEscrow(escrow.escrowContractId);
 
   setEscrowContract(id, escrow.escrowContractId);
@@ -22,8 +38,5 @@ export async function POST(_request: Request, context: { params: Promise<{ id: s
 
   void startAgentExecution(id);
 
-  return NextResponse.json({
-    ...getBundle(id),
-    escrow,
-  });
+  return NextResponse.json(getBundle(id));
 }
