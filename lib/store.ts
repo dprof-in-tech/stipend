@@ -13,11 +13,11 @@ interface Store {
   tasks: Map<string, TaskState>;
 }
 
-const globalStore = globalThis as typeof globalThis & { __stipendStore?: Store };
+const globalStore = globalThis as typeof globalThis & { stipendStoreGlobal?: Store };
 
-const store: Store = globalStore.__stipendStore ?? { tasks: new Map<string, TaskState>() };
-if (!globalStore.__stipendStore) {
-  globalStore.__stipendStore = store;
+const store: Store = globalStore.stipendStoreGlobal ?? { tasks: new Map<string, TaskState>() };
+if (!globalStore.stipendStoreGlobal) {
+  globalStore.stipendStoreGlobal = store;
 }
 
 const formatUSDC = (value: number) => value.toFixed(4);

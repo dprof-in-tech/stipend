@@ -6,6 +6,7 @@ import type { TaskBundle, VerifierResult } from "@/lib/types";
 
 const DEFAULT_QUERY =
   "Find the safest way to run AI research spending with escrow on Stellar Mainnet.";
+const TX_HASH_DISPLAY_LENGTH = 12;
 
 export function StipendApp() {
   const [query, setQuery] = useState(DEFAULT_QUERY);
@@ -222,7 +223,7 @@ export function StipendApp() {
                   </div>
                   {call.tx_hash ? (
                     <a className="text-blue-700 underline" href={stellarTxLink(call.tx_hash)} rel="noreferrer" target="_blank">
-                      tx: {call.tx_hash.slice(0, 12)}...
+                      tx: {call.tx_hash.slice(0, TX_HASH_DISPLAY_LENGTH)}...
                     </a>
                   ) : null}
                 </li>
