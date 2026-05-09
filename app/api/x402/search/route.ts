@@ -1,11 +1,24 @@
+// x402-enabled search endpoint.
+// Implements the real x402 payment protocol using the x402 npm package.
+// Spec: https://github.com/x402-foundation/x402
+//
+// Flow:
+//  1. Request arrives without X-PAYMENT header → HTTP 402 with PaymentRequirements
+//  2. Client creates a payment header using createMockPaymentPayload (demo) or
+//     a real EVM wallet signing (production)
+//  3. Request retries with X-PAYMENT: <base64-encoded PaymentPayload>
+//  4. Server decodes + verifies → returns search results with X-PAYMENT-RESPONSE header
+
 import { NextResponse } from "next/server";
+import {
+  buildSearchPaymentRequirements,
+  verifyIncomingPayment,
+  X402_VERSION,
+} from "@/lib/x402/client";
 
 export const runtime = "nodejs";
 
-// Price in USDC for a single search request
-const PRICE_USDC = "0.003";
-
-// Curated mock results keyed by query keywords
+// Curated mock search results keyed by query topic
 const MOCK_RESULTS: Record<string, Array<{ title: string; url: string; snippet: string }>> = {
   default: [
     {
@@ -27,19 +40,19 @@ const MOCK_RESULTS: Record<string, Array<{ title: string; url: string; snippet: 
         "Claude supports tool use (function calling), allowing models to invoke external tools like web search and fetch to gather real-time information.",
     },
     {
-      title: "x402 Protocol — HTTP Micropayments on Stellar",
-      url: "https://x402.org",
+      title: "x402 Protocol — HTTP Micropayments",
+      url: "https://github.com/x402-foundation/x402",
       snippet:
-        "x402 is an open protocol for HTTP 402 Payment Required micropayments. Services return a 402 with payment details; clients pay in USDC on Stellar and retry.",
+        "x402 is an open protocol for HTTP 402 Payment Required micropayments. Services return a 402 with PaymentRequirements; clients pay in USDC and retry.",
     },
     {
-      title: "USDC on Stellar — Circle Documentation",
-      url: "https://developers.circle.com/stablecoins/usdc-on-stellar",
+      title: "USDC on Base — Circle Documentation",
+      url: "https://developers.circle.com/stablecoins/usdc-on-base",
       snippet:
-        "USDC is a fully-reserved dollar-backed stablecoin available natively on Stellar. Used for fast, low-cost payments and DeFi applications.",
+        "USDC is a fully-reserved dollar-backed stablecoin available natively on Base. Used for fast, low-cost payments and DeFi applications.",
     },
   ],
-  "2009 film": [
+  "2009": [
     {
       title: "The Hurt Locker (2009) — Rotten Tomatoes",
       url: "https://www.rottentomatoes.com/m/hurt_locker",
@@ -56,7 +69,7 @@ const MOCK_RESULTS: Record<string, Array<{ title: string; url: string; snippet: 
       title: "Avatar (2009) Box Office — Box Office Mojo",
       url: "https://www.boxofficemojo.com/title/tt0499549/",
       snippet:
-        "James Cameron's Avatar grossed $2.9 billion worldwide, making it the highest-grossing film of all time at release. Critically received with a 82% on RT.",
+        "James Cameron's Avatar grossed $2.9 billion worldwide, making it the highest-grossing film of all time at release. Critically received with an 82% on RT.",
     },
     {
       title: "Inglourious Basterds — Roger Ebert Review",
@@ -68,7 +81,7 @@ const MOCK_RESULTS: Record<string, Array<{ title: string; url: string; snippet: 
       title: "District 9 — Empire Magazine Review",
       url: "https://www.empireonline.com/movies/reviews/district-9-review/",
       snippet:
-        "Empire gave District 9 five stars, praising Neill Blomkamp's debut as a viscerally thrilling sci-fi allegory for apartheid. RT score: 90%.",
+        "Empire gave District 9 five stars, praising Neill Blomkamp's debut as a viscerally thrilling sci-fi allegory for apartheid. Rotten Tomatoes score: 90%.",
     },
   ],
   movie: [
@@ -79,7 +92,7 @@ const MOCK_RESULTS: Record<string, Array<{ title: string; url: string; snippet: 
         "Sight & Sound critics selected The Hurt Locker, A Prophet, and The White Ribbon among the best films of 2009, reflecting critical consensus on prestige cinema.",
     },
     {
-      title: "2009 Academy Awards — Best Picture nominees",
+      title: "82nd Academy Awards — Best Picture nominees",
       url: "https://www.oscars.org/oscars/ceremonies/82",
       snippet:
         "The 82nd Academy Awards expanded to 10 Best Picture nominees. The Hurt Locker won Best Picture, directed by Kathryn Bigelow — the first woman to win the award.",
@@ -90,20 +103,8 @@ const MOCK_RESULTS: Record<string, Array<{ title: string; url: string; snippet: 
       snippet:
         "2009 saw major releases including Avatar, The Hurt Locker, Inglourious Basterds, Up, District 9, A Serious Man, and Precious, spanning blockbuster and arthouse.",
     },
-    {
-      title: "The White Ribbon — Cannes Palme d'Or 2009",
-      url: "https://www.festival-cannes.com/en/films/the-white-ribbon",
-      snippet:
-        "Michael Haneke's The White Ribbon won the Palme d'Or at Cannes 2009, described by critics as a chilling examination of the roots of fascism in rural Germany.",
-    },
   ],
   escrow: [
-    {
-      title: "How Escrow Works — Investopedia",
-      url: "https://www.investopedia.com/terms/e/escrow.asp",
-      snippet:
-        "Escrow is a financial arrangement where a third party holds funds until conditions are met. Commonly used in real estate, M&A transactions, and online marketplaces.",
-    },
     {
       title: "Smart Contract Escrow on Stellar — Soroban",
       url: "https://developers.stellar.org/docs/smart-contracts/",
@@ -122,13 +123,7 @@ const MOCK_RESULTS: Record<string, Array<{ title: string; url: string; snippet: 
       title: "Anthropic Claude Models — Documentation",
       url: "https://docs.anthropic.com/en/docs/about-claude/models",
       snippet:
-        "Claude claude-sonnet-4-6 is Anthropic's most capable model for complex reasoning, research synthesis, and tool use tasks as of 2025.",
-    },
-    {
-      title: "Agentic AI Frameworks in 2025 — MIT Technology Review",
-      url: "https://www.technologyreview.com/2025/01/agentic-ai",
-      snippet:
-        "Agentic AI systems that autonomously plan, search the web, and take actions have moved from research prototypes to production tools in 2024–2025.",
+        "Claude claude-sonnet-4-6 supports native web_search and web_fetch server tools via the beta API, enabling real-time research with citations.",
     },
     {
       title: "Principal-Agent Problem in AI — Stanford AI Lab",
@@ -152,53 +147,67 @@ function findResults(query: string) {
 export async function GET(request: Request) {
   const url = new URL(request.url);
   const query = url.searchParams.get("q") ?? "";
-  const paymentHeader = request.headers.get("X-Payment");
+  const paymentHeader = request.headers.get("X-PAYMENT");
 
+  const requirements = buildSearchPaymentRequirements(url.toString().split("?")[0]);
+
+  // No payment header → return HTTP 402 with proper x402 PaymentRequirements
   if (!paymentHeader) {
-    return NextResponse.json(
-      {
-        error: "Payment required",
-        payment: {
-          amount: PRICE_USDC,
-          currency: "USDC",
-          network: "stellar:testnet",
-          recipient: process.env.AGENT_STELLAR_SECRET ? "agent-wallet" : "mock-wallet",
-          scheme: "x402",
-        },
+    const body = {
+      x402Version: X402_VERSION,
+      error: "X-PAYMENT header is required",
+      accepts: [requirements],
+    };
+
+    return NextResponse.json(body, {
+      status: 402,
+      headers: {
+        // Standard x402 response headers
+        "X-Payment-Required": "true",
+        "X-Payment-Version": String(X402_VERSION),
+        "X-Payment-Network": requirements.network,
+        "X-Payment-Asset": requirements.asset,
+        "X-Payment-Amount": requirements.maxAmountRequired,
+        "X-Payment-Recipient": requirements.payTo,
       },
-      {
-        status: 402,
-        headers: {
-          "X-Payment-Required": "true",
-          "X-Payment-Amount": PRICE_USDC,
-          "X-Payment-Currency": "USDC",
-          "X-Payment-Network": "stellar:testnet",
-        },
-      },
-    );
+    });
   }
 
   if (!query) {
-    return NextResponse.json({ error: "q parameter required" }, { status: 400 });
+    return NextResponse.json({ error: "q parameter is required" }, { status: 400 });
+  }
+
+  // Verify the X-PAYMENT header using the x402 package
+  const verification = await verifyIncomingPayment(paymentHeader, requirements);
+  if (!verification.valid) {
+    return NextResponse.json(
+      {
+        x402Version: X402_VERSION,
+        error: `Payment verification failed: ${verification.reason ?? "unknown"}`,
+      },
+      { status: 402 },
+    );
   }
 
   const results = findResults(query);
 
+  // X-PAYMENT-RESPONSE header carries settlement confirmation (spec-compliant)
+  const settlementReceipt = Buffer.from(
+    JSON.stringify({
+      settled: true,
+      amount: requirements.maxAmountRequired,
+      network: requirements.network,
+      asset: requirements.asset,
+      ts: Date.now(),
+    }),
+  ).toString("base64");
+
   return NextResponse.json(
-    {
-      query,
-      results,
-      meta: {
-        settlement: "x402",
-        amount_paid_usdc: PRICE_USDC,
-        currency: "USDC",
-        network: "stellar:testnet",
-      },
-    },
+    { query, results, meta: { settlement: "x402", network: requirements.network, asset: requirements.asset, amount_usdc: "0.003" } },
     {
       headers: {
+        "X-PAYMENT-RESPONSE": settlementReceipt,
         "X-Payment-Settled": "true",
-        "X-Payment-Amount": PRICE_USDC,
       },
     },
   );
