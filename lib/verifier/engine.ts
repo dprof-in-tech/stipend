@@ -1,6 +1,10 @@
 import type { TaskBundle, VerifierResult } from "@/lib/types";
 
 const REQUIRED_KEYS = ["interpretation", "coverage", "evidence", "reasoning", "citations"] as const;
+const RUBRIC_SCORE_BASELINE = 4;
+const RUBRIC_SCORE_MISSING_CITATIONS = 2;
+const RUBRIC_SCORE_FABRICATED_CITATION = 1;
+const RUBRIC_SCORE_STRONG_CITATIONS = 5;
 
 export const runAdversarialVerifier = (bundle: TaskBundle): VerifierResult => {
   const knownCitations = new Set(bundle.phases.flatMap((phase) => phase.citations));
@@ -9,11 +13,15 @@ export const runAdversarialVerifier = (bundle: TaskBundle): VerifierResult => {
   const hasFabricatedCitation = (synthesis?.citations ?? []).some((citation) => !knownCitations.has(citation));
 
   const scores: VerifierResult["scores"] = {
-    interpretation: 4,
-    coverage: 4,
-    evidence: synthesis?.citations.length ? 4 : 2,
-    reasoning: 4,
-    citations: hasFabricatedCitation ? 1 : synthesis?.citations.length ? 5 : 2,
+    interpretation: RUBRIC_SCORE_BASELINE,
+    coverage: RUBRIC_SCORE_BASELINE,
+    evidence: synthesis?.citations.length ? RUBRIC_SCORE_BASELINE : RUBRIC_SCORE_MISSING_CITATIONS,
+    reasoning: RUBRIC_SCORE_BASELINE,
+    citations: hasFabricatedCitation
+      ? RUBRIC_SCORE_FABRICATED_CITATION
+      : synthesis?.citations.length
+        ? RUBRIC_SCORE_STRONG_CITATIONS
+        : RUBRIC_SCORE_MISSING_CITATIONS,
   };
 
   const values = REQUIRED_KEYS.map((key) => scores[key]);

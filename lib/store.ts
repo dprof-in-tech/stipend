@@ -20,10 +20,10 @@ if (!globalStore.__stipendStore) {
   globalStore.__stipendStore = store;
 }
 
-const usd = (value: number) => value.toFixed(4);
+const formatUSDC = (value: number) => value.toFixed(4);
 
 const totalCostUSDC = (toolCalls: ToolCall[]) =>
-  usd(toolCalls.reduce((sum, call) => sum + Number(call.amount_usdc), 0));
+  formatUSDC(toolCalls.reduce((sum, call) => sum + Number(call.amount_usdc), 0));
 
 export const listBundles = (): TaskBundle[] =>
   Array.from(store.tasks.values()).map((state) => ({
@@ -54,7 +54,7 @@ export const createTask = (query: string, budgetUSDC: number): TaskBundle => {
   const task: Task = {
     id,
     query,
-    budget_usdc: usd(budgetUSDC),
+    budget_usdc: formatUSDC(budgetUSDC),
     status: "planning",
     escrow_contract_id: "",
     created_at: new Date().toISOString(),
@@ -64,7 +64,7 @@ export const createTask = (query: string, budgetUSDC: number): TaskBundle => {
     id: randomUUID(),
     task_id: id,
     title: "Research delivery",
-    amount_usdc: usd(budgetUSDC),
+    amount_usdc: formatUSDC(budgetUSDC),
     status: "pending",
     verifier_score: null,
   };

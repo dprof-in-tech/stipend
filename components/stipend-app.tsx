@@ -4,8 +4,11 @@ import { FormEvent, useMemo, useState } from "react";
 import { stellarTxLink } from "@/lib/stellar/links";
 import type { TaskBundle, VerifierResult } from "@/lib/types";
 
+const DEFAULT_QUERY =
+  "Find the safest way to run AI research spending with escrow on Stellar Mainnet.";
+
 export function StipendApp() {
-  const [query, setQuery] = useState("Find the safest way to run AI research spending with escrow on Stellar Mainnet.");
+  const [query, setQuery] = useState(DEFAULT_QUERY);
   const [budget, setBudget] = useState("1.50");
   const [bundle, setBundle] = useState<TaskBundle | null>(null);
   const [verifier, setVerifier] = useState<VerifierResult | null>(null);

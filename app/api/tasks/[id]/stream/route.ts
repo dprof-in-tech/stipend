@@ -41,7 +41,8 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
         }
       };
 
-      interval = setInterval(sendSnapshot, 350);
+      const SSE_POLL_INTERVAL_MS = 350;
+      interval = setInterval(sendSnapshot, SSE_POLL_INTERVAL_MS);
       sendSnapshot();
 
       request.signal.addEventListener("abort", close);

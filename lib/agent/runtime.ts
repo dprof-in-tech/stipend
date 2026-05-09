@@ -2,6 +2,7 @@ import { randomUUID } from "crypto";
 import { addPhase, addToolCall, getBundle, setMilestoneStatus, updateTaskStatus } from "@/lib/store";
 import { toUSDC } from "@/lib/costs/format";
 
+const PHASE_PROCESSING_DELAY_MS = 250;
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const phaseTemplates = [
@@ -81,7 +82,7 @@ export const startAgentExecution = async (taskId: string) => {
       });
     }
 
-    await sleep(250);
+    await sleep(PHASE_PROCESSING_DELAY_MS);
   }
 
   const bundle = getBundle(taskId);
