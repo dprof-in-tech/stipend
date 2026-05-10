@@ -6,6 +6,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import type { BetaMessageParam } from "@anthropic-ai/sdk/resources/beta/messages/messages";
 import { addPhase, addToolCall, getBundle, setMilestoneStatus, updateTaskStatus } from "@/lib/store";
+import { changeMilestoneStatus } from "@/lib/tw/client";
 import { toUSDC } from "@/lib/costs/format";
 import {
   buildSearchPaymentRequirements,
@@ -351,6 +352,14 @@ export const startAgentExecution = async (taskId: string) => {
         citations: [],
       });
     }
+  }
+
+  const completedBundle = getBundle(taskId);
+  if (completedBundle?.task.escrow_contract_id) {
+    const artifactUrls = completedBundle.phases
+      .filter((p) => p.artifact_url)
+      .map((p) => p.artifact_url);
+    await changeMilestoneStatus(completedBundle.task.escrow_contract_id, 0, artifactUrls).catch(() => {});
   }
 
   setMilestoneStatus(taskId, "submitted");

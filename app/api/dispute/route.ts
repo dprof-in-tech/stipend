@@ -16,7 +16,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Task not found." }, { status: 404 });
   }
 
-  await disputeEscrow();
+  await disputeEscrow(bundle.task.escrow_contract_id);
   setMilestoneStatus(payload.taskId, "disputed");
   updateTaskStatus(payload.taskId, "disputed");
 

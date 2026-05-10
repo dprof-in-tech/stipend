@@ -28,9 +28,9 @@ export async function POST(request: Request) {
   setVerifierResult(payload.taskId, result);
 
   if (result.approved) {
-    await approveMilestone();
+    await approveMilestone(bundle.task.escrow_contract_id);
     setMilestoneStatus(payload.taskId, "approved");
-    await releaseFunds();
+    await releaseFunds(bundle.task.escrow_contract_id);
     setMilestoneStatus(payload.taskId, "released");
     updateTaskStatus(payload.taskId, "complete");
   } else {
