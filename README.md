@@ -72,11 +72,6 @@ https://friendbot.stellar.org?addr=<AGENT_STELLAR_PUBLIC_KEY>
 
 Open each URL in a browser. You should see `"successful": true`.
 
-**Fund the platform wallet with testnet USDC** — the platform wallet funds escrows, so it needs USDC:
-- Go to [dapp.dev.trustlesswork.com](https://dapp.dev.trustlesswork.com)
-- Connect Freighter wallet (or check if there's a faucet in their Telegram)
-- Alternatively: contact Trustless Work via their [Telegram](https://t.me/+kmr8tGegxLU0NTA5)
-
 Add to `.env.local`:
 ```env
 PLATFORM_STELLAR_PUBLIC_KEY=G...
@@ -86,6 +81,19 @@ AGENT_STELLAR_SECRET=S...
 STELLAR_NETWORK=testnet
 USDC_STELLAR_ISSUER=GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5
 ```
+
+**Establish USDC trustlines** — Stellar wallets must opt into holding USDC before they can receive it. Run this once from your local machine:
+
+```bash
+npm run setup:stellar
+```
+
+This script reads your `.env.local`, connects to Stellar testnet, creates the USDC `changeTrust` transaction for both wallets (signed with their secret keys), and submits it automatically.
+
+**Fund the platform wallet with testnet USDC** — the platform wallet deposits USDC into escrows when tasks are funded:
+- Ask in the [Trustless Work Telegram](https://t.me/+kmr8tGegxLU0NTA5) for testnet USDC
+- Or check [dapp.dev.trustlesswork.com](https://dapp.dev.trustlesswork.com) for a faucet
+- The setup script will print the exact address to send USDC to
 
 ### 3. Run the dev server
 
