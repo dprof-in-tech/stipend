@@ -2,8 +2,9 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Stipend",
-  description: "Escrow-gated AI research on Stellar Mainnet",
+  title: "Stipend — Escrow-gated AI research",
+  description:
+    "Give your AI research agent a budget, not your credit card. Funds lock in escrow; agent works; verifier gates release.",
 };
 
 export default function RootLayout({
@@ -12,8 +13,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="h-full antialiased">
-      <body className="min-h-full flex flex-col">{children}</body>
+    <html lang="en" className="h-full">
+      <body className="h-full overflow-hidden antialiased">{children}</body>
     </html>
   );
 }
