@@ -30,7 +30,7 @@ export async function POST(_request: Request, context: { params: Promise<{ id: s
     verifierAddress: verifierWallet.publicKey,
   });
 
-  await fundEscrow(escrow.escrowContractId);
+  await fundEscrow(escrow.escrowContractId, { amount: bundle.task.budget_usdc });
 
   setEscrowContract(id, escrow.escrowContractId);
   setMilestoneStatus(id, "pending");
