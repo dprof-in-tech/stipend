@@ -77,7 +77,7 @@ async function twPost<T = Record<string, unknown>>(
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${TW_API_KEY}`,
+      "x-api-key": TW_API_KEY,
     },
     body: JSON.stringify(body),
     signal: AbortSignal.timeout(20000),
@@ -169,7 +169,7 @@ export const deployEscrow = async (
       roles: {
         approver: platformPub,          // platform verifier approves
         serviceProvider: agentPub,     // agent is service provider
-        platformAddress: platformPub,
+        plataformAddress: platformPub,
         releaseSigner: platformPub,    // platform releases funds
         disputeResolver: platformPub,  // platform resolves disputes
         receiver: agentPub,            // agent receives payment
