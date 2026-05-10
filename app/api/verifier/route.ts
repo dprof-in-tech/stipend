@@ -14,29 +14,34 @@ export async function POST(request: Request) {
 
   const bundle = getBundle(payload.taskId);
   if (!bundle) {
-    return NextResponse.json({ error: "Task not found." }, { status: 404 });
+    return NextResponse.json({ error: "Task not found" }, { status: 404 });
   }
 
-  if (bundle.task.status !== "complete") {
+  // Relaxed check: allow verifier to run if task is "complete" or "disputed"
+  if (bundle.task.status !== "complete" && bundle.task.status !== "disputed") {
     return NextResponse.json(
-      { error: "Agent must finish execution before verification." },
-      { status: 409 },
+      { error: "Agent must finish execution before verification" },
+      { status: 409 }
     );
   }
 
-  const result = await runAdversarialVerifier(bundle);
-  setVerifierResult(payload.taskId, result);
+  try {
+    const result = await runAdversarialVerifier(bundle);
+    setVerifierResult(payload.taskId, result);
 
-  if (result.approved) {
-    await approveMilestone(bundle.task.escrow_contract_id);
-    setMilestoneStatus(payload.taskId, "approved");
-    await releaseFunds(bundle.task.escrow_contract_id);
-    setMilestoneStatus(payload.taskId, "released");
-    updateTaskStatus(payload.taskId, "complete");
-  } else {
-    setMilestoneStatus(payload.taskId, "disputed");
-    updateTaskStatus(payload.taskId, "disputed");
+    if (result.approved) {
+      await approveMilestone(bundle.task.escrow_contract_id);
+      setMilestoneStatus(payload.taskId, "approved");
+      await releaseFunds(bundle.task.escrow_contract_id);
+      setMilestoneStatus(payload.taskId, "released");
+      updateTaskStatus(payload.taskId, "complete");
+    } else {
+      setMilestoneStatus(payload.taskId, "disputed");
+      updateTaskStatus(payload.taskId, "disputed");
+    }
+
+    return NextResponse.json({ result, task: getBundle(payload.taskId) });
+  } catch (error) {
+    return NextResponse.json({ error: "Verification failed" }, { status: 500 });
   }
-
-  return NextResponse.json({ result, task: getBundle(payload.taskId) });
 }

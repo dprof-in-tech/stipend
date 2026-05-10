@@ -70,25 +70,53 @@ function mockHash(): string {
 async function twPost<T = Record<string, unknown>>(
   path: string,
   body: unknown,
+  retries = 3,
 ): Promise<T> {
   if (!isConfigured()) throw new Error("TW not configured");
 
-  const res = await fetch(`${TW_API_BASE}${path}`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "x-api-key": TW_API_KEY,
-    },
-    body: JSON.stringify(body),
-    signal: AbortSignal.timeout(20000),
-  });
+  let lastError: string = "";
 
-  if (!res.ok) {
-    const text = await res.text().catch(() => res.statusText);
-    throw new Error(`TW ${path} HTTP ${res.status}: ${text}`);
+  for (let attempt = 0; attempt < retries; attempt++) {
+    try {
+      const res = await fetch(`${TW_API_BASE}${path}`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-api-key": TW_API_KEY,
+        },
+        body: JSON.stringify(body),
+        signal: AbortSignal.timeout(20000),
+      });
+
+      if (!res.ok) {
+        // Don't retry on client errors (4xx), only on server errors (5xx)
+        if (res.status >= 500 && attempt < retries - 1) {
+          lastError = `HTTP ${res.status}`;
+          await new Promise(resolve => setTimeout(resolve, 1000 * (attempt + 1)));
+          continue;
+        }
+        
+        const text = await res.text().catch(() => res.statusText);
+        throw new Error(`TW ${path} HTTP ${res.status}: ${text}`);
+      }
+
+      return res.json() as Promise<T>;
+    } catch (rawErr) {
+      // Safely extract error message without mutating
+      const errMsg = rawErr instanceof Error ? rawErr.message : String(rawErr);
+      lastError = errMsg;
+      
+      // If it's the last attempt, throw a fresh error
+      if (attempt === retries - 1) {
+        throw new Error(lastError);
+      }
+      
+      // Wait before retrying (exponential backoff)
+      await new Promise(resolve => setTimeout(resolve, 1000 * (attempt + 1)));
+    }
   }
 
-  return res.json() as Promise<T>;
+  throw new Error(`TW request failed: ${lastError}`);
 }
 
 // ── XDR signing ───────────────────────────────────────────────────────────────
@@ -111,7 +139,8 @@ async function buildSignSubmit(
   }>(path, body);
 
   if (!buildRes.unsignedTransaction) {
-    throw new Error(`TW ${path}: no unsignedTransaction in response`);
+    const err = new Error(`TW ${path}: no unsignedTransaction in response`);
+    throw err;
   }
 
   const signedXdr = signAndEncodeXdr(buildRes.unsignedTransaction, signerKeypair);
@@ -122,7 +151,9 @@ async function buildSignSubmit(
   );
 
   if (submitRes.status !== "SUCCESS") {
-    throw new Error(`TW send-transaction failed: ${submitRes.message ?? submitRes.status}`);
+    const errMsg = submitRes.message ?? submitRes.status;
+    const err = new Error(`TW send-transaction failed: ${errMsg}`);
+    throw err;
   }
 
   // TW does not return a tx hash directly; derive a stable reference from the signed XDR
@@ -169,7 +200,7 @@ export const deployEscrow = async (
       roles: {
         approver: platformPub,          // platform verifier approves
         serviceProvider: agentPub,     // agent is service provider
-        plataformAddress: platformPub,
+        platformAddress: platformPub,
         releaseSigner: platformPub,    // platform releases funds
         disputeResolver: platformPub,  // platform resolves disputes
         receiver: agentPub,            // agent receives payment
@@ -181,7 +212,8 @@ export const deployEscrow = async (
     });
 
     if (!buildRes.unsignedTransaction) {
-      throw new Error("TW deploy: no unsignedTransaction returned");
+      const err = new Error("TW deploy: no unsignedTransaction returned");
+      throw err;
     }
 
     const signedXdr = signAndEncodeXdr(buildRes.unsignedTransaction, platformKp);
@@ -194,7 +226,9 @@ export const deployEscrow = async (
     }>("/helper/send-transaction", { signedXdr });
 
     if (submitRes.status !== "SUCCESS") {
-      throw new Error(`TW deploy failed: ${submitRes.message ?? submitRes.status}`);
+      const errMsg = submitRes.message ?? submitRes.status;
+      const err = new Error(`TW deploy failed: ${errMsg}`);
+      throw err;
     }
 
     const contractId =

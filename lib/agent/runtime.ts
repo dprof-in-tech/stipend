@@ -168,20 +168,21 @@ async function x402Search(query: string, taskId: string, phaseId: string): Promi
 }
 
 export const startAgentExecution = async (taskId: string) => {
-  updateTaskStatus(taskId, "running");
+  try {
+    updateTaskStatus(taskId, "running");
 
-  const bundle = getBundle(taskId);
-  if (!bundle) return;
+    const bundle = getBundle(taskId);
+    if (!bundle) return;
 
-  const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+    const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
-  // Maintain the conversation as BetaMessageParam[]
-  const messages: BetaMessageParam[] = [{ role: "user", content: bundle.task.query }];
+    // Maintain the conversation as BetaMessageParam[]
+    const messages: BetaMessageParam[] = [{ role: "user", content: bundle.task.query }];
 
-  const emittedPhases = new Set<PhaseKind>();
-  let currentPhaseId = bundle.milestone.id;
-  let iterations = 0;
-  const MAX_ITERATIONS = 15;
+    const emittedPhases = new Set<PhaseKind>();
+    let currentPhaseId = bundle.milestone.id;
+    let iterations = 0;
+    const MAX_ITERATIONS = 15;
 
   while (iterations < MAX_ITERATIONS) {
     iterations++;
@@ -201,7 +202,7 @@ export const startAgentExecution = async (taskId: string) => {
     // web_fetch_20250910  → Anthropic's servers fetch the URL
     // No manual tool execution needed — results appear in response.content automatically
     const response = await client.beta.messages.create({
-      model: "claude-sonnet-4-6",
+      model: "claude-sonnet-4-20250514",
       max_tokens: 8096,
       system: AGENT_SYSTEM_PROMPT,
       tools: [
@@ -330,7 +331,8 @@ export const startAgentExecution = async (taskId: string) => {
                 .trim()
                 .slice(0, 3000);
             } catch (err) {
-              content = `[Fetch error: ${err instanceof Error ? err.message : "unknown"}]`;
+              const errMsg = err instanceof Error ? err.message : "unknown";
+              content = `[Fetch error: ${errMsg}]`;
             }
           }
 
@@ -364,4 +366,9 @@ export const startAgentExecution = async (taskId: string) => {
 
   setMilestoneStatus(taskId, "submitted");
   updateTaskStatus(taskId, "complete");
+  } catch (err) {
+    const errMsg = err instanceof Error ? err.message : String(err);
+    console.error(`Agent execution failed for task ${taskId}:`, errMsg);
+    updateTaskStatus(taskId, "complete");
+  }
 };

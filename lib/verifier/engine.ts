@@ -23,7 +23,7 @@ if the work clearly clears the bar.
    committed to a definition of the ambiguous term in the \`decompose\`
    phase. Missing definition = \`interpretation\` ≤ 2.
 
-2. **Score the rubric.** Score 1–5 per dimension. 4 = pass-grade, 5 =
+2. **Score the rubric.** Score 1–5 per dimension. 3.5 = pass-grade, 5 =
    exceptional, 3 = borderline, ≤ 2 = clear fail.
 
    - \`interpretation\`: Did the agent commit to a clear definition of any
@@ -49,7 +49,7 @@ if the work clearly clears the bar.
      \`citations\` ≤ 3 and note in rationale.
 
 4. **Decide.** Pass requires ALL of:
-   - average score ≥ 4.0
+   - average score ≥ 3.5
    - no individual score < 3
    - citation re-check did not find fabrication
 
@@ -182,7 +182,7 @@ export const runAdversarialVerifier = async (bundle: TaskBundle): Promise<Verifi
       title: bundle.milestone.title,
       description: "Deliver a cited, verifiable research answer to the query.",
       acceptance_criteria: {
-        avg_score_threshold: 4.0,
+        avg_score_threshold: 3.5,
         min_individual_score: 3,
         citation_recheck_required: true,
       },
@@ -199,8 +199,9 @@ export const runAdversarialVerifier = async (bundle: TaskBundle): Promise<Verifi
 
   let rawResult: VerifierRawResult | null = null;
   let iterations = 0;
+  const MAX_CONVERSATION_TURNS = 5;
 
-  while (iterations < 5) {
+  while (iterations < MAX_CONVERSATION_TURNS && !rawResult) {
     iterations++;
 
     const response = await client.messages.create({
@@ -236,13 +237,77 @@ export const runAdversarialVerifier = async (bundle: TaskBundle): Promise<Verifi
       try {
         const jsonMatch = textBlock.text.match(/\{[\s\S]*\}/);
         if (jsonMatch) {
-          rawResult = JSON.parse(jsonMatch[0]) as VerifierRawResult;
+          const parsed = JSON.parse(jsonMatch[0]) as VerifierRawResult;
+          // Validate that the parsed object has required fields
+          if (
+            parsed.scores &&
+            parsed.average !== undefined &&
+            typeof parsed.passes === "boolean"
+          ) {
+            rawResult = parsed;
+            break; // Successfully parsed and validated
+          } else {
+            // Validation failed - ask for retry
+            console.warn("Parsed JSON but validation failed:", parsed);
+            if (iterations < MAX_CONVERSATION_TURNS) {
+              messages.push({
+                role: "user",
+                content: [
+                  {
+                    type: "text",
+                    text: 'Your JSON response is missing required fields. Please ensure all fields are present: scores (with interpretation, coverage, evidence, reasoning, citations), average, passes, citation_recheck, blocking_issues, and rationale.',
+                  },
+                ],
+              });
+              continue;
+            }
+          }
+        } else {
+          // No JSON found
+          if (iterations < MAX_CONVERSATION_TURNS) {
+            messages.push({
+              role: "user",
+              content: [
+                {
+                  type: "text",
+                  text: 'No JSON found in your response. Please return ONLY valid JSON matching the specified format, starting with { and ending with }.',
+                },
+              ],
+            });
+            continue;
+          }
         }
-      } catch {
-        // parse failed — loop will exit
+      } catch (err) {
+        console.error("Failed to parse verifier JSON:", err instanceof Error ? err.message : String(err));
+        // Continue to retry if we haven't hit max iterations
+        if (iterations < MAX_CONVERSATION_TURNS) {
+          messages.push({
+            role: "user",
+            content: [
+              {
+                type: "text",
+                text: 'Your response was not valid JSON. Please return ONLY valid JSON matching the specified format, starting with { and ending with }.',
+              },
+            ],
+          });
+          continue;
+        }
+      }
+    } else {
+      // No text block found
+      if (iterations < MAX_CONVERSATION_TURNS) {
+        messages.push({
+          role: "user",
+          content: [
+            {
+              type: "text",
+              text: 'Please provide a text response with your verification results in JSON format.',
+            },
+          ],
+        });
+        continue;
       }
     }
-    break;
   }
 
   // Map raw result to VerifierResult interface

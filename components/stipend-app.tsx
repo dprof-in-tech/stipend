@@ -6,7 +6,7 @@ import type { TaskBundle, VerifierResult } from "@/lib/types";
 
 const DEFAULT_QUERY = "What was the best film of 2009, and why? Give me a defensible critical argument.";
 const TX_HASH_DISPLAY_LENGTH = 10;
-const TW_VIEWER_BASE = "https://escrow-viewer.trustlesswork.com";
+const TW_VIEWER_BASE = "https://viewer.trustlesswork.com";
 
 const STATUS_LABELS: Record<string, string> = {
   planning: "Planning",
@@ -50,7 +50,7 @@ function Badge({ status }: { status: string }) {
 
 function ScoreBar({ score }: { score: number }) {
   const pct = (score / 5) * 100;
-  const color = score >= 4 ? "bg-green-500" : score >= 3 ? "bg-amber-400" : "bg-red-500";
+  const color = score >= 3.5 ? "bg-green-500" : score >= 3 ? "bg-amber-400" : "bg-red-500";
   return (
     <div className="flex items-center gap-2">
       <div className="h-1.5 w-24 rounded-full bg-gray-200">
@@ -123,6 +123,51 @@ export function StipendApp() {
   const [verifying, setVerifying] = useState(false);
   const streamRef = useRef<EventSource | null>(null);
   const phaseLogRef = useRef<HTMLDivElement>(null);
+
+  // Load from localStorage on mount
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    
+    try {
+      const cachedBundle = localStorage.getItem("stipend_bundle");
+      const cachedVerifier = localStorage.getItem("stipend_verifier");
+      
+      if (cachedBundle) {
+        setBundle(JSON.parse(cachedBundle) as TaskBundle);
+      }
+      if (cachedVerifier) {
+        setVerifier(JSON.parse(cachedVerifier) as VerifierResult);
+      }
+    } catch (err) {
+      console.error("Failed to load from localStorage:", err);
+    }
+  }, []);
+
+  // Save bundle to localStorage whenever it changes
+  useEffect(() => {
+    if (typeof window === "undefined" || !bundle) return;
+    
+    try {
+      localStorage.setItem("stipend_bundle", JSON.stringify(bundle));
+    } catch (err) {
+      console.error("Failed to save bundle to localStorage:", err);
+    }
+  }, [bundle]);
+
+  // Save verifier to localStorage whenever it changes
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    
+    try {
+      if (verifier) {
+        localStorage.setItem("stipend_verifier", JSON.stringify(verifier));
+      } else {
+        localStorage.removeItem("stipend_verifier");
+      }
+    } catch (err) {
+      console.error("Failed to save verifier to localStorage:", err);
+    }
+  }, [verifier]);
 
   const stopStream = useCallback(() => {
     if (streamRef.current) {
@@ -220,44 +265,63 @@ export function StipendApp() {
     });
   };
 
+  const clearCache = () => {
+    if (typeof window === "undefined") return;
+    if (confirm("Clear all cached data and start fresh?")) {
+      localStorage.removeItem("stipend_bundle");
+      localStorage.removeItem("stipend_verifier");
+      setBundle(null);
+      setVerifier(null);
+      setError(null);
+    }
+  };
+
   const totalCost = bundle?.totalCostUSDC ?? "0.0000";
   const taskStatus = bundle?.task.status ?? "planning";
   const isRunning = taskStatus === "running";
   const isComplete = taskStatus === "complete";
   const isDisputed = taskStatus === "disputed";
   const canFund = !!bundle && taskStatus === "planning" && !loading;
-  const canVerify = isComplete && !verifier && !verifying;
+  const canVerify = (isComplete || taskStatus === "disputed") && !verifying;
   const canDispute = !!bundle && !isDisputed && !loading;
 
   return (
-    <div className="flex min-h-screen flex-col bg-gray-50">
+    <div className="min-h-screen w-full bg-gray-50">
       {/* Header */}
-      <header className="border-b bg-white px-6 py-4 flex items-center justify-between shadow-sm">
+      <header className="sticky top-0 z-10 border-b bg-white px-6 py-4 flex items-center justify-between shadow-sm">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-gray-900">Stipend</h1>
           <p className="text-sm text-gray-600 mt-0.5">Escrow-gated AI research on Stellar</p>
         </div>
-        {bundle && (
-          <div className="flex items-center gap-3">
-            <Badge status={taskStatus} />
-            {bundle.task.escrow_contract_id && (
-              <a
-                href={`${TW_VIEWER_BASE}/escrow/${bundle.task.escrow_contract_id}`}
-                target="_blank"
-                rel="noreferrer"
-                className="rounded border border-blue-300 bg-blue-50 px-3 py-1 text-xs text-blue-700 hover:bg-blue-100 transition-colors"
-              >
-                View on Escrow Viewer ↗
-              </a>
-            )}
-          </div>
-        )}
+        <div className="flex items-center gap-3">
+          {bundle && (
+            <>
+              <Badge status={taskStatus} />
+              {bundle.task.escrow_contract_id && (
+                <a
+                  href={`${TW_VIEWER_BASE}/escrow/${bundle.task.escrow_contract_id}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="rounded border border-blue-300 bg-blue-50 px-3 py-1 text-xs text-blue-700 hover:bg-blue-100 transition-colors"
+                >
+                  View on Escrow Viewer ↗
+                </a>
+              )}
+            </>
+          )}
+          <button
+            onClick={clearCache}
+            className="rounded border border-gray-300 bg-white px-3 py-1 text-xs text-gray-700 hover:bg-gray-50 transition-colors"
+          >
+            Clear Cache
+          </button>
+        </div>
       </header>
 
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex flex-col lg:flex-row max-w-7xl mx-auto min-h-[calc(100vh-81px)]">
         {/* Left panel: Task input + controls */}
-        <aside className="w-80 shrink-0 border-r bg-white flex flex-col overflow-y-auto">
-          <form onSubmit={createTask} className="flex flex-col gap-4 p-6 border-b">
+        <aside className="w-full lg:w-80 shrink-0 border-r bg-white p-6 space-y-8 lg:h-min lg:sticky lg:top-20">
+          <form onSubmit={createTask} className="flex flex-col gap-4">
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-2" htmlFor="query">
                 Research question
@@ -300,7 +364,7 @@ export function StipendApp() {
 
           {/* Action buttons */}
           {bundle && (
-            <div className="flex flex-col gap-3 p-6 border-b">
+            <div className="flex flex-col gap-3 pt-4 border-t">
               <button
                 onClick={fundTask}
                 disabled={!canFund}
@@ -314,7 +378,7 @@ export function StipendApp() {
                 disabled={!canVerify || loading}
                 className="w-full rounded-lg bg-emerald-600 py-3 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-40 transition-colors"
               >
-                {verifying ? "Verifying…" : "Run Verifier"}
+                {verifying ? "Verifying…" : verifier ? "Retry Verifier" : "Run Verifier"}
               </button>
 
               <button
@@ -329,12 +393,12 @@ export function StipendApp() {
 
           {/* Escrow state */}
           {bundle && (
-            <div className="p-6 space-y-4 border-b">
+            <div className="space-y-4 pt-4 border-t">
               <h2 className="text-xs font-semibold text-gray-700 uppercase tracking-wider">Escrow state</h2>
               <dl className="space-y-3 text-sm">
                 <div className="flex justify-between">
                   <dt className="text-gray-600">Contract</dt>
-                  <dd className="font-mono text-xs max-w-36 truncate text-right text-gray-900">
+                                    <dd className="font-mono text-xs max-w-32 truncate text-right text-gray-900">
                     {bundle.task.escrow_contract_id || "—"}
                   </dd>
                 </div>
@@ -358,10 +422,10 @@ export function StipendApp() {
 
           {/* Cost ticker */}
           {bundle && bundle.toolCalls.length > 0 && (
-            <div className="p-6 flex-1">
+            <div className="pt-4 border-t">
               <h2 className="text-xs font-semibold text-gray-700 uppercase tracking-wider mb-4">Cost ticker</h2>
-              <div className="space-y-2 max-h-64 overflow-y-auto">
-                {bundle.toolCalls.map((call) => (
+              <div className="space-y-2">
+                {bundle.toolCalls.slice().reverse().map((call) => (
                   <div key={call.id} className="rounded border bg-white p-3 text-xs space-y-1.5">
                     <div className="flex items-center justify-between gap-1">
                       <span className="font-mono text-gray-600 uppercase text-[10px] font-semibold">{call.kind}</span>
@@ -391,8 +455,8 @@ export function StipendApp() {
         </aside>
 
         {/* Center panel: Live agent log */}
-        <main className="flex-1 flex flex-col overflow-hidden">
-          <div className="border-b bg-white px-6 py-4 flex items-center justify-between">
+        <main className="flex-1 bg-white border-r">
+          <div className="sticky top-[81px] z-10 border-b bg-white px-6 py-4 flex items-center justify-between">
             <h2 className="text-sm font-semibold text-gray-900">Live phase log</h2>
             {isRunning && (
               <span className="flex items-center gap-1.5 text-xs text-amber-600 font-medium">
@@ -405,58 +469,58 @@ export function StipendApp() {
             )}
           </div>
 
-          <div ref={phaseLogRef} className="flex-1 overflow-y-auto p-6 space-y-4">
+          <div className="p-6 space-y-6">
             {!bundle && (
-              <div className="flex flex-col items-center justify-center h-full text-center text-gray-400">
-                <p className="text-4xl mb-3">🔬</p>
-                <p className="text-base text-gray-700 font-medium">Create a task to start the research agent.</p>
+              <div className="flex flex-col items-center justify-center py-20 text-center text-gray-400">
+                <p className="text-5xl mb-4">🔬</p>
+                <p className="text-lg text-gray-700 font-medium">Create a task to start the research agent.</p>
                 <p className="text-sm text-gray-600 mt-2">Funds lock in escrow. Agent works. Verifier gates release.</p>
               </div>
             )}
 
             {bundle && bundle.phases.length === 0 && (
-              <div className="flex flex-col items-center justify-center h-full text-center text-gray-400">
+              <div className="flex flex-col items-center justify-center py-20 text-center text-gray-400">
                 {taskStatus === "planning" && (
                   <>
-                    <p className="text-4xl mb-3">💰</p>
-                    <p className="text-base text-gray-700 font-medium">Fund the escrow to start the agent.</p>
+                    <p className="text-5xl mb-4">💰</p>
+                    <p className="text-lg text-gray-700 font-medium">Fund the escrow to start the agent.</p>
                   </>
                 )}
                 {isRunning && (
                   <>
-                    <p className="text-4xl mb-3 animate-spin">⚙️</p>
-                    <p className="text-base text-gray-700 font-medium">Agent is working…</p>
+                    <p className="text-5xl mb-4 animate-spin-slow">⚙️</p>
+                    <p className="text-lg text-gray-700 font-medium">Agent is working…</p>
                   </>
                 )}
               </div>
             )}
 
             {bundle?.phases.map((phase) => (
-              <details key={phase.id} open className="group rounded-xl border bg-white shadow-sm overflow-hidden">
-                <summary className="flex items-center gap-3 px-5 py-4 cursor-pointer select-none hover:bg-gray-50 transition-colors">
+              <div key={phase.id} className="rounded-xl border bg-white shadow-sm overflow-hidden">
+                <div className="flex items-center gap-3 px-5 py-4 bg-gray-50 border-b">
                   <span className="text-lg">{PHASE_ICONS[phase.kind] ?? "📄"}</span>
                   <div className="flex-1 min-w-0">
-                    <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">{phase.kind}</span>
-                    <p className="text-base font-semibold text-gray-900 truncate">{phase.title}</p>
+                    <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">{phase.kind}</span>
+                    <p className="text-base font-bold text-gray-900 truncate">{phase.title}</p>
                   </div>
-                  <span className="text-gray-400 group-open:rotate-90 transition-transform text-xs">▶</span>
-                </summary>
+                </div>
 
-                <div className="border-t px-5 py-4 space-y-4">
+                <div className="px-5 py-6 space-y-4">
                   <p className="text-sm leading-relaxed text-gray-700 whitespace-pre-wrap">{phase.content}</p>
 
                   {phase.citations.length > 0 && (
-                    <div>
-                      <p className="text-xs font-semibold text-gray-600 uppercase tracking-wider mb-2">Sources</p>
-                      <ul className="space-y-1.5">
+                    <div className="pt-4 border-t">
+                      <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-3">Sources</p>
+                      <ul className="space-y-2">
                         {phase.citations.map((url) => (
                           <li key={url}>
                             <a
                               href={url}
                               target="_blank"
                               rel="noreferrer"
-                              className="text-sm text-blue-600 hover:underline break-all"
+                              className="text-sm text-blue-600 hover:underline break-all flex items-center gap-2"
                             >
+                              <span className="text-gray-400">🔗</span>
                               {url}
                             </a>
                           </li>
@@ -465,35 +529,69 @@ export function StipendApp() {
                     </div>
                   )}
 
-                  <p className="text-xs font-mono text-gray-400">
-                    sha256: {phase.artifact_hash.slice(0, 20)}…
-                  </p>
+                  <div className="pt-4 border-t flex justify-between items-center">
+                    <p className="text-[10px] font-mono text-gray-400 uppercase">
+                      Integrity: {phase.artifact_hash.slice(0, 16)}…
+                    </p>
+                  </div>
                 </div>
-              </details>
+              </div>
             ))}
           </div>
 
           {error && (
-            <div className="border-t bg-red-50 px-6 py-3">
-              <p className="text-sm text-red-700">{error}</p>
+            <div className="sticky bottom-0 z-10 border-t bg-red-50 px-6 py-4 shadow-lg">
+              <p className="text-sm font-medium text-red-700">{error}</p>
             </div>
           )}
         </main>
 
         {/* Right panel: Verifier output */}
-        <aside className="w-72 shrink-0 border-l bg-white flex flex-col overflow-y-auto">
-          <div className="border-b px-6 py-4">
+        <aside className="w-full lg:w-80 shrink-0 bg-white p-6 lg:h-min lg:sticky lg:top-[81px]">
+          <div className="pb-4 mb-6 border-b">
             <h2 className="text-sm font-semibold text-gray-900">Verifier output</h2>
             <p className="text-xs text-gray-600 mt-1">Adversarial LLM judge</p>
           </div>
 
-          <div className="flex-1 p-5">
+          <div className="space-y-6">
             {verifier ? (
-              <VerifierPanel verifier={verifier} />
+              <>
+                <VerifierPanel verifier={verifier} />
+                
+                <div className="border-t pt-6 space-y-4">
+                  {verifier.approved && bundle?.milestone.status === "released" && (
+                    <div className="rounded-lg bg-green-50 border border-green-200 p-4 text-xs text-green-800">
+                      <p className="font-bold text-sm">✓ Funds released</p>
+                      <p className="mt-1 text-green-700 leading-relaxed">
+                        {bundle.task.budget_usdc} USDC transferred to agent wallet.
+                      </p>
+                      {bundle.task.escrow_contract_id && (
+                        <a
+                          href={`${TW_VIEWER_BASE}/escrow/${bundle.task.escrow_contract_id}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="mt-2 inline-block font-semibold text-blue-700 hover:underline"
+                        >
+                          View on Escrow Viewer ↗
+                        </a>
+                      )}
+                    </div>
+                  )}
+                  {!verifier.approved && (
+                    <div className="rounded-lg bg-red-50 border border-red-200 p-4 text-xs text-red-800">
+                      <p className="font-bold text-sm">✗ Verification failed</p>
+                      <p className="mt-1 text-red-700 leading-relaxed">
+                        The agent's work did not meet the 3.5 average threshold. Funds remain in escrow. 
+                        You can dispute to reclaim funds or run the verifier again.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </>
             ) : (
-              <div className="flex flex-col items-center justify-center h-full text-center text-gray-400">
-                <p className="text-3xl mb-2">⚖️</p>
-                <p className="text-xs">
+              <div className="flex flex-col items-center justify-center py-10 text-center text-gray-400">
+                <p className="text-4xl mb-3">⚖️</p>
+                <p className="text-sm font-medium text-gray-600">
                   {isComplete
                     ? "Click Run Verifier to evaluate the agent’s output."
                     : "Verifier runs after the agent completes."}
@@ -501,36 +599,6 @@ export function StipendApp() {
               </div>
             )}
           </div>
-
-          {/* Dispute + release info */}
-          {verifier && (
-            <div className="border-t p-5 space-y-2">
-              {verifier.approved && bundle?.milestone.status === "released" && (
-                <div className="rounded-lg bg-green-50 border border-green-200 p-3 text-xs text-green-800">
-                  <p className="font-semibold">✓ Funds released</p>
-                  <p className="mt-0.5 text-green-600">
-                    {bundle.task.budget_usdc} USDC transferred to agent wallet.
-                  </p>
-                  {bundle.task.escrow_contract_id && (
-                    <a
-                      href={`${TW_VIEWER_BASE}/escrow/${bundle.task.escrow_contract_id}`}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="mt-1 block text-blue-600 hover:underline"
-                    >
-                      View on Escrow Viewer ↗
-                    </a>
-                  )}
-                </div>
-              )}
-              {!verifier.approved && (
-                <div className="rounded-lg bg-red-50 border border-red-200 p-3 text-xs text-red-800">
-                  <p className="font-semibold">✗ Verification failed</p>
-                  <p className="mt-0.5 text-red-600">Funds remain in escrow. You can dispute to reclaim.</p>
-                </div>
-              )}
-            </div>
-          )}
         </aside>
       </div>
     </div>
