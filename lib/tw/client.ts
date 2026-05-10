@@ -158,7 +158,7 @@ export const deployEscrow = async (
       unsignedTransaction?: string;
       contractId?: string;
       status?: string;
-    }>("/deployer/invoke-deployer-contract", {
+    }>("/deployer/single-release", {
       signer: platformPub,
       engagementId: taskId,
       title: `Stipend research task ${taskId.slice(0, 8)}`,
@@ -228,7 +228,7 @@ export const fundEscrow = async (
 
   if (isConfigured()) {
     const { txHash } = await buildSignSubmit(
-      "/escrow/fund-escrow",
+      "/escrow/single-release/fund-escrow",
       {
         contractId: escrowContractId,
         amount,
@@ -252,7 +252,7 @@ export const changeMilestoneStatus = async (
 
   if (isConfigured()) {
     const { txHash } = await buildSignSubmit(
-      "/escrow/change-milestone-status",
+      "/escrow/single-release/change-milestone-status",
       {
         contractId: escrowContractId,
         milestoneIndex: String(milestoneIndex),
@@ -278,7 +278,7 @@ export const approveMilestone = async (
 
   if (isConfigured()) {
     const { txHash } = await buildSignSubmit(
-      "/escrow/change-milestone-approved-flag",
+      "/escrow/single-release/approve-milestone",
       {
         contractId: escrowContractId,
         milestoneIndex: String(milestoneIndex),
@@ -301,7 +301,7 @@ export const releaseFunds = async (
 
   if (isConfigured()) {
     const { txHash } = await buildSignSubmit(
-      "/escrow/release-funds",
+      "/escrow/single-release/release-funds",
       {
         contractId: escrowContractId,
         releaseSigner: platformKp.publicKey(),
@@ -323,7 +323,7 @@ export const disputeEscrow = async (
 
   if (isConfigured()) {
     const { txHash } = await buildSignSubmit(
-      "/escrow/change-dispute-flag",
+      "/escrow/single-release/dispute-escrow",
       {
         contractId: escrowContractId,
         signer: platformKp.publicKey(),
