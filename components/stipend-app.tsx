@@ -234,8 +234,8 @@ export function StipendApp() {
       {/* Header */}
       <header className="border-b bg-white px-6 py-4 flex items-center justify-between shadow-sm">
         <div>
-          <h1 className="text-xl font-bold tracking-tight">Stipend</h1>
-          <p className="text-xs text-gray-500 mt-0.5">Escrow-gated AI research on Stellar</p>
+          <h1 className="text-2xl font-bold tracking-tight text-gray-900">Stipend</h1>
+          <p className="text-sm text-gray-600 mt-0.5">Escrow-gated AI research on Stellar</p>
         </div>
         {bundle && (
           <div className="flex items-center gap-3">
@@ -257,14 +257,14 @@ export function StipendApp() {
       <div className="flex flex-1 overflow-hidden">
         {/* Left panel: Task input + controls */}
         <aside className="w-80 shrink-0 border-r bg-white flex flex-col overflow-y-auto">
-          <form onSubmit={createTask} className="flex flex-col gap-4 p-5 border-b">
+          <form onSubmit={createTask} className="flex flex-col gap-4 p-6 border-b">
             <div>
-              <label className="block text-xs font-semibold text-gray-600 mb-1.5" htmlFor="query">
+              <label className="block text-sm font-semibold text-gray-700 mb-2" htmlFor="query">
                 Research question
               </label>
               <textarea
                 id="query"
-                className="w-full min-h-28 rounded-lg border border-gray-300 p-2.5 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full min-h-28 rounded-lg border border-gray-300 p-3 text-sm text-black resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 disabled={loading || isRunning}
@@ -273,7 +273,7 @@ export function StipendApp() {
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-gray-600 mb-1.5" htmlFor="budget">
+              <label className="block text-sm font-semibold text-gray-700 mb-2" htmlFor="budget">
                 Budget (USDC)
               </label>
               <input
@@ -282,7 +282,7 @@ export function StipendApp() {
                 step="0.01"
                 min="0.10"
                 max="100"
-                className="w-full rounded-lg border border-gray-300 p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full text-black rounded-lg border border-gray-300 p-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50"
                 value={budget}
                 onChange={(e) => setBudget(e.target.value)}
                 disabled={loading || isRunning}
@@ -291,7 +291,7 @@ export function StipendApp() {
 
             <button
               type="submit"
-              className="w-full rounded-lg bg-gray-900 py-2.5 text-sm font-medium text-white hover:bg-gray-700 disabled:opacity-40 transition-colors"
+              className="w-full rounded-lg bg-blue-600 py-3 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-40 transition-colors"
               disabled={loading || isRunning || !query.trim()}
             >
               {loading && loadingLabel === "Creating task…" ? "Creating…" : "Create Task"}
@@ -300,11 +300,11 @@ export function StipendApp() {
 
           {/* Action buttons */}
           {bundle && (
-            <div className="flex flex-col gap-2 p-5 border-b">
+            <div className="flex flex-col gap-3 p-6 border-b">
               <button
                 onClick={fundTask}
                 disabled={!canFund}
-                className="w-full rounded-lg border border-blue-500 bg-blue-500 py-2.5 text-sm font-medium text-white hover:bg-blue-600 disabled:opacity-40 transition-colors"
+                className="w-full rounded-lg bg-blue-600 py-3 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-40 transition-colors"
               >
                 {loading && loadingLabel === "Funding escrow…" ? "Funding…" : "Fund Escrow + Start Agent"}
               </button>
@@ -312,7 +312,7 @@ export function StipendApp() {
               <button
                 onClick={runVerifier}
                 disabled={!canVerify || loading}
-                className="w-full rounded-lg border border-emerald-500 bg-emerald-500 py-2.5 text-sm font-medium text-white hover:bg-emerald-600 disabled:opacity-40 transition-colors"
+                className="w-full rounded-lg bg-emerald-600 py-3 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-40 transition-colors"
               >
                 {verifying ? "Verifying…" : "Run Verifier"}
               </button>
@@ -320,7 +320,7 @@ export function StipendApp() {
               <button
                 onClick={dispute}
                 disabled={!canDispute || loading}
-                className="w-full rounded-lg border border-red-400 py-2.5 text-sm font-medium text-red-600 hover:bg-red-50 disabled:opacity-40 transition-colors"
+                className="w-full rounded-lg border-2 border-red-500 bg-white py-3 text-sm font-semibold text-red-600 hover:bg-red-50 disabled:opacity-40 transition-colors"
               >
                 {loading && loadingLabel === "Filing dispute…" ? "Disputing…" : "Dispute"}
               </button>
@@ -329,28 +329,28 @@ export function StipendApp() {
 
           {/* Escrow state */}
           {bundle && (
-            <div className="p-5 space-y-3 border-b">
-              <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Escrow state</h2>
-              <dl className="space-y-2 text-sm">
+            <div className="p-6 space-y-4 border-b">
+              <h2 className="text-xs font-semibold text-gray-700 uppercase tracking-wider">Escrow state</h2>
+              <dl className="space-y-3 text-sm">
                 <div className="flex justify-between">
-                  <dt className="text-gray-500">Contract</dt>
-                  <dd className="font-mono text-xs max-w-36 truncate text-right">
+                  <dt className="text-gray-600">Contract</dt>
+                  <dd className="font-mono text-xs max-w-36 truncate text-right text-gray-900">
                     {bundle.task.escrow_contract_id || "—"}
                   </dd>
                 </div>
                 <div className="flex justify-between">
-                  <dt className="text-gray-500">Budget</dt>
-                  <dd className="font-medium">{bundle.task.budget_usdc} USDC</dd>
+                  <dt className="text-gray-600">Budget</dt>
+                  <dd className="font-semibold text-gray-900">{bundle.task.budget_usdc} USDC</dd>
                 </div>
                 <div className="flex justify-between">
-                  <dt className="text-gray-500">Milestone</dt>
-                  <dd className={`font-medium ${MILESTONE_COLORS[bundle.milestone.status] ?? ""}`}>
+                  <dt className="text-gray-600">Milestone</dt>
+                  <dd className={`font-semibold ${MILESTONE_COLORS[bundle.milestone.status] ?? "text-gray-900"}`}>
                     {bundle.milestone.status}
                   </dd>
                 </div>
                 <div className="flex justify-between">
-                  <dt className="text-gray-500">Spent</dt>
-                  <dd className="font-mono font-medium text-amber-700">{totalCost} USDC</dd>
+                  <dt className="text-gray-600">Spent</dt>
+                  <dd className="font-mono font-semibold text-amber-700">{totalCost} USDC</dd>
                 </div>
               </dl>
             </div>
@@ -358,27 +358,27 @@ export function StipendApp() {
 
           {/* Cost ticker */}
           {bundle && bundle.toolCalls.length > 0 && (
-            <div className="p-5 flex-1">
-              <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Cost ticker</h2>
+            <div className="p-6 flex-1">
+              <h2 className="text-xs font-semibold text-gray-700 uppercase tracking-wider mb-4">Cost ticker</h2>
               <div className="space-y-2 max-h-64 overflow-y-auto">
                 {bundle.toolCalls.map((call) => (
-                  <div key={call.id} className="rounded border bg-gray-50 p-2 text-xs">
-                    <div className="flex items-center justify-between gap-1 mb-0.5">
-                      <span className="font-mono text-gray-500 uppercase text-[10px]">{call.kind}</span>
-                      <span className={`text-[10px] font-medium rounded px-1 ${call.settlement === "x402" ? "bg-violet-100 text-violet-700" : "bg-gray-200 text-gray-600"}`}>
+                  <div key={call.id} className="rounded border bg-white p-3 text-xs space-y-1.5">
+                    <div className="flex items-center justify-between gap-1">
+                      <span className="font-mono text-gray-600 uppercase text-[10px] font-semibold">{call.kind}</span>
+                      <span className={`text-[10px] font-semibold rounded px-2 py-1 ${call.settlement === "x402" ? "bg-violet-100 text-violet-700" : "bg-gray-100 text-gray-700"}`}>
                         {call.settlement}
                       </span>
                     </div>
                     <div className="flex items-center justify-between">
-                      <span className="text-gray-600 truncate max-w-28">{call.provider}</span>
-                      <span className="font-mono text-amber-700">{call.amount_usdc}</span>
+                      <span className="text-gray-700 truncate max-w-28 font-medium">{call.provider}</span>
+                      <span className="font-mono font-semibold text-amber-700">{call.amount_usdc}</span>
                     </div>
                     {call.tx_hash && (
                       <a
                         href={stellarTxLink(call.tx_hash)}
                         target="_blank"
                         rel="noreferrer"
-                        className="text-blue-600 hover:underline mt-0.5 block font-mono text-[10px]"
+                        className="text-blue-600 hover:underline block font-mono text-[10px]"
                       >
                         tx: {call.tx_hash.slice(0, TX_HASH_DISPLAY_LENGTH)}… ↗
                       </a>
@@ -392,16 +392,16 @@ export function StipendApp() {
 
         {/* Center panel: Live agent log */}
         <main className="flex-1 flex flex-col overflow-hidden">
-          <div className="border-b bg-white px-6 py-3 flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-gray-700">Live phase log</h2>
+          <div className="border-b bg-white px-6 py-4 flex items-center justify-between">
+            <h2 className="text-sm font-semibold text-gray-900">Live phase log</h2>
             {isRunning && (
-              <span className="flex items-center gap-1.5 text-xs text-amber-600">
+              <span className="flex items-center gap-1.5 text-xs text-amber-600 font-medium">
                 <span className="inline-block h-2 w-2 rounded-full bg-amber-500 animate-pulse" />
                 Agent running
               </span>
             )}
             {isComplete && !verifier && (
-              <span className="text-xs text-green-600">Agent complete — ready for verification</span>
+              <span className="text-xs text-green-600 font-medium">Agent complete — ready for verification</span>
             )}
           </div>
 
@@ -409,8 +409,8 @@ export function StipendApp() {
             {!bundle && (
               <div className="flex flex-col items-center justify-center h-full text-center text-gray-400">
                 <p className="text-4xl mb-3">🔬</p>
-                <p className="text-sm">Create a task to start the research agent.</p>
-                <p className="text-xs mt-1">Funds lock in escrow. Agent works. Verifier gates release.</p>
+                <p className="text-base text-gray-700 font-medium">Create a task to start the research agent.</p>
+                <p className="text-sm text-gray-600 mt-2">Funds lock in escrow. Agent works. Verifier gates release.</p>
               </div>
             )}
 
@@ -419,13 +419,13 @@ export function StipendApp() {
                 {taskStatus === "planning" && (
                   <>
                     <p className="text-4xl mb-3">💰</p>
-                    <p className="text-sm">Fund the escrow to start the agent.</p>
+                    <p className="text-base text-gray-700 font-medium">Fund the escrow to start the agent.</p>
                   </>
                 )}
                 {isRunning && (
                   <>
                     <p className="text-4xl mb-3 animate-spin">⚙️</p>
-                    <p className="text-sm">Agent is working…</p>
+                    <p className="text-base text-gray-700 font-medium">Agent is working…</p>
                   </>
                 )}
               </div>
@@ -433,29 +433,29 @@ export function StipendApp() {
 
             {bundle?.phases.map((phase) => (
               <details key={phase.id} open className="group rounded-xl border bg-white shadow-sm overflow-hidden">
-                <summary className="flex items-center gap-3 px-4 py-3 cursor-pointer select-none hover:bg-gray-50 transition-colors">
+                <summary className="flex items-center gap-3 px-5 py-4 cursor-pointer select-none hover:bg-gray-50 transition-colors">
                   <span className="text-lg">{PHASE_ICONS[phase.kind] ?? "📄"}</span>
                   <div className="flex-1 min-w-0">
-                    <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">{phase.kind}</span>
-                    <p className="text-sm font-medium text-gray-800 truncate">{phase.title}</p>
+                    <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">{phase.kind}</span>
+                    <p className="text-base font-semibold text-gray-900 truncate">{phase.title}</p>
                   </div>
-                  <span className="text-gray-300 group-open:rotate-90 transition-transform text-xs">▶</span>
+                  <span className="text-gray-400 group-open:rotate-90 transition-transform text-xs">▶</span>
                 </summary>
 
-                <div className="border-t px-4 py-3 space-y-3">
+                <div className="border-t px-5 py-4 space-y-4">
                   <p className="text-sm leading-relaxed text-gray-700 whitespace-pre-wrap">{phase.content}</p>
 
                   {phase.citations.length > 0 && (
                     <div>
-                      <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">Sources</p>
-                      <ul className="space-y-1">
+                      <p className="text-xs font-semibold text-gray-600 uppercase tracking-wider mb-2">Sources</p>
+                      <ul className="space-y-1.5">
                         {phase.citations.map((url) => (
                           <li key={url}>
                             <a
                               href={url}
                               target="_blank"
                               rel="noreferrer"
-                              className="text-xs text-blue-600 hover:underline break-all"
+                              className="text-sm text-blue-600 hover:underline break-all"
                             >
                               {url}
                             </a>
@@ -465,7 +465,7 @@ export function StipendApp() {
                     </div>
                   )}
 
-                  <p className="text-[10px] font-mono text-gray-300">
+                  <p className="text-xs font-mono text-gray-400">
                     sha256: {phase.artifact_hash.slice(0, 20)}…
                   </p>
                 </div>
@@ -482,9 +482,9 @@ export function StipendApp() {
 
         {/* Right panel: Verifier output */}
         <aside className="w-72 shrink-0 border-l bg-white flex flex-col overflow-y-auto">
-          <div className="border-b px-5 py-3">
-            <h2 className="text-sm font-semibold text-gray-700">Verifier output</h2>
-            <p className="text-xs text-gray-400 mt-0.5">Adversarial LLM judge</p>
+          <div className="border-b px-6 py-4">
+            <h2 className="text-sm font-semibold text-gray-900">Verifier output</h2>
+            <p className="text-xs text-gray-600 mt-1">Adversarial LLM judge</p>
           </div>
 
           <div className="flex-1 p-5">
