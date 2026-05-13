@@ -12,7 +12,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "taskId is required." }, { status: 400 });
   }
 
-  const bundle = getBundle(payload.taskId);
+  const bundle = await getBundle(payload.taskId);
   if (!bundle) {
     return NextResponse.json({ error: "Task not found" }, { status: 404 });
   }
@@ -27,13 +27,13 @@ export async function POST(request: Request) {
 
   try {
     const result = await runAdversarialVerifier(bundle);
-    setVerifierResult(payload.taskId, result);
+    await setVerifierResult(payload.taskId, result);
 
     if (result.approved) {
       // 1. Set to pending_release with a 2-minute buffer
       const releaseAt = Date.now() + 120000;
-      updateTaskStatus(payload.taskId, "pending_release", releaseAt);
-      setMilestoneStatus(payload.taskId, "pending_release");
+      await updateTaskStatus(payload.taskId, "pending_release", releaseAt);
+      await setMilestoneStatus(payload.taskId, "pending_release");
     } else if (result.partial_payout_eligible) {
       // TIERED SETTLEMENT: Partial Success (3.0 - 3.4)
       console.log(`[Tiered Payout] Task ${payload.taskId} eligible for 50/50 split.`);
@@ -54,14 +54,14 @@ export async function POST(request: Request) {
       
       await resolveDispute(escrowId, distributions);
       
-      setMilestoneStatus(payload.taskId, "released");
-      updateTaskStatus(payload.taskId, "released");
+      await setMilestoneStatus(payload.taskId, "released");
+      await updateTaskStatus(payload.taskId, "released");
     } else {
-      setMilestoneStatus(payload.taskId, "disputed");
-      updateTaskStatus(payload.taskId, "disputed");
+      await setMilestoneStatus(payload.taskId, "disputed");
+      await updateTaskStatus(payload.taskId, "disputed");
     }
 
-    return NextResponse.json({ result, task: getBundle(payload.taskId) });
+    return NextResponse.json({ result, task: await getBundle(payload.taskId) });
   } catch (error) {
     console.error(`[Verifier Crash] Task ${payload.taskId}:`, error);
     return NextResponse.json({ error: "Verification failed" }, { status: 500 });

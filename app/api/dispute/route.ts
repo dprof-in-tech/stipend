@@ -11,7 +11,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "taskId is required." }, { status: 400 });
   }
 
-  const bundle = getBundle(payload.taskId);
+  const bundle = await getBundle(payload.taskId);
   if (!bundle) {
     return NextResponse.json({ error: "Task not found." }, { status: 404 });
   }
@@ -49,10 +49,10 @@ export async function POST(request: Request) {
         }
       }
 
-      setMilestoneStatus(payload.taskId, "refunded");
-      updateTaskStatus(payload.taskId, "refunded");
+      await setMilestoneStatus(payload.taskId, "refunded");
+      await updateTaskStatus(payload.taskId, "refunded");
       
-      return NextResponse.json({ task: getBundle(payload.taskId) });
+      return NextResponse.json({ task: await getBundle(payload.taskId) });
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
       console.error("[Dispute] Error processing dispute:", message);
@@ -102,16 +102,16 @@ export async function POST(request: Request) {
         await resolveDispute(bundle.task.escrow_contract_id, distributions);
       }
 
-      setMilestoneStatus(payload.taskId, "refunded");
-      updateTaskStatus(payload.taskId, "refunded");
+      await setMilestoneStatus(payload.taskId, "refunded");
+      await updateTaskStatus(payload.taskId, "refunded");
     } catch (err) {
       console.error("Auto-resolution failed:", err);
       // Fallback: just mark as disputed if resolution fails
-      setMilestoneStatus(payload.taskId, "disputed");
-      updateTaskStatus(payload.taskId, "disputed");
+      await setMilestoneStatus(payload.taskId, "disputed");
+      await updateTaskStatus(payload.taskId, "disputed");
     }
 
-    return NextResponse.json({ task: getBundle(payload.taskId) });
+    return NextResponse.json({ task: await getBundle(payload.taskId) });
   }
 
   return NextResponse.json({ error: "Either { build: true } or signedXdr is required." }, { status: 400 });

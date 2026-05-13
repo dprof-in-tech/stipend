@@ -7,7 +7,7 @@ export const runtime = "nodejs";
 export async function POST(request: Request, context: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await context.params;
-    const bundle = getBundle(id);
+    const bundle = await getBundle(id);
 
     if (!bundle) {
       return NextResponse.json({ error: "Task not found." }, { status: 404 });
@@ -21,12 +21,12 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     }
 
     // Set back to running state
-    updateTaskStatus(id, "running");
+    await updateTaskStatus(id, "running");
 
     // Start agent async
     void startAgentExecution(id);
 
-    return NextResponse.json(getBundle(id));
+    return NextResponse.json(await getBundle(id));
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     return NextResponse.json({ error: message }, { status: 500 });

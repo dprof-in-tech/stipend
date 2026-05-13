@@ -12,7 +12,7 @@ export async function POST(
     const { id } = await params;
     const { feedback } = await request.json();
 
-    const bundle = getBundle(id);
+    const bundle = await getBundle(id);
     if (!bundle) {
       return NextResponse.json({ error: "Task not found" }, { status: 404 });
     }
@@ -25,12 +25,12 @@ export async function POST(
     }
 
     // Set status to running (retry)
-    updateTaskStatus(id, "running", 0); // clear release_at
+    await updateTaskStatus(id, "running", 0); // clear release_at
 
     // Trigger agent with feedback
     void startAgentExecution(id, feedback);
 
-    return NextResponse.json(getBundle(id));
+    return NextResponse.json(await getBundle(id));
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
     console.error("Dispute retry failed:", message);

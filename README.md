@@ -137,6 +137,7 @@ You can create and inspect escrows directly at [dapp.dev.trustlesswork.com](http
 | `TW_VIEWER_BASE` | No | Escrow Viewer base URL for deep links |
 | `X402_SEARCH_ENDPOINT` | No | Defaults to local `/api/x402/search` |
 | `X402_FACILITATOR_URL` | No | Coinbase x402 facilitator for real settlement |
+| `STIPEND_DB_PATH` | No | Custom path for SQLite (e.g. `/data/stipend.db`) |
 
 Without `AI_GATEWAY_API_KEY` or provider keys, the agent falls back to a realistic mock. The verifier uses the same model as the agent by default.
 

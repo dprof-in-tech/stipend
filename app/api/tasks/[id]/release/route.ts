@@ -9,7 +9,7 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
-  const bundle = getBundle(id);
+  const bundle = await getBundle(id);
 
   if (!bundle) {
     return NextResponse.json({ error: "Task not found" }, { status: 404 });
@@ -25,10 +25,10 @@ export async function POST(
     await releaseFunds(escrowId);
 
     // 3. Update local state
-    setMilestoneStatus(id, "released");
-    updateTaskStatus(id, "released");
+    await setMilestoneStatus(id, "released");
+    await updateTaskStatus(id, "released");
 
-    return NextResponse.json(getBundle(id));
+    return NextResponse.json(await getBundle(id));
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
     console.error("Release failed:", message);

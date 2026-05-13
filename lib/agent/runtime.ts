@@ -43,7 +43,7 @@ async function performX402Settlement(taskId: string, phaseId: string, provider: 
 
     if (res.ok) {
       const txHash = createHash("sha256").update(paymentHeader).digest("hex");
-      addToolCall(taskId, {
+      await addToolCall(taskId, {
         phase_id: phaseId,
         kind: "x402",
         provider,
@@ -61,7 +61,7 @@ async function performX402Settlement(taskId: string, phaseId: string, provider: 
 
 export const startAgentExecution = async (taskId: string, userFeedback?: string) => {
   try {
-    const bundle = getBundle(taskId);
+    const bundle = await getBundle(taskId);
     if (!bundle) return;
 
     // 1. Ensure Agent has a bond balance (min 1 USDC) to cover potential tool costs
@@ -69,11 +69,11 @@ export const startAgentExecution = async (taskId: string, userFeedback?: string)
     if (agentBalance < 1.0) {
       const msg = `Agent has insufficient bond balance (${agentBalance.toFixed(2)} USDC). Please refuel agent wallet to continue.`;
       console.error(`[Agent] ${msg}`);
-      updateTaskStatus(taskId, "failed");
+      await updateTaskStatus(taskId, "failed");
       return;
     }
 
-    updateTaskStatus(taskId, "running");
+    await updateTaskStatus(taskId, "running");
 
     // Model selection logic (using Vercel AI Gateway via AI_GATEWAY_API_KEY)
     const model = process.env.AGENT_MODEL ?? "anthropic/claude-haiku-4.5";
@@ -155,7 +155,7 @@ export const startAgentExecution = async (taskId: string, userFeedback?: string)
           }),
           execute: async ({ url }) => {
             console.log(`[Agent] Tool: web_fetch url="${url}"`);
-            addToolCall(taskId, {
+            await addToolCall(taskId, {
               phase_id: currentPhaseId,
               kind: "fetch",
               provider: "web-fetch",
@@ -192,7 +192,7 @@ export const startAgentExecution = async (taskId: string, userFeedback?: string)
 
         // Track precise LLM cost using tokens
         const cost = calculateLLMCost(model, usage);
-        addToolCall(taskId, {
+        await addToolCall(taskId, {
           phase_id: currentPhaseId,
           kind: "llm",
           provider: model,
@@ -205,21 +205,21 @@ export const startAgentExecution = async (taskId: string, userFeedback?: string)
           fullText += text;
           const phases = extractPhaseBlocks(fullText);
           console.log(`[Agent] Extracted ${phases.length} phase blocks from accumulated text.`);
-          for (const phaseData of phases) {
-            if (!emittedPhases.has(phaseData.kind)) {
-              const phase = addPhase(taskId, {
-                kind: phaseData.kind,
-                title: phaseData.title,
-                artifact_url: `memory://phase/${taskId}/${phaseData.kind}`,
-                content: phaseData.content,
-                citations: phaseData.citations,
-              });
-              if (phase) {
-                emittedPhases.add(phaseData.kind);
-                currentPhaseId = phase.id;
+            for (const phaseData of phases) {
+              if (!emittedPhases.has(phaseData.kind)) {
+                const phase = await addPhase(taskId, {
+                  kind: phaseData.kind,
+                  title: phaseData.title,
+                  artifact_url: `memory://phase/${taskId}/${phaseData.kind}`,
+                  content: phaseData.content,
+                  citations: phaseData.citations,
+                });
+                if (phase) {
+                  emittedPhases.add(phaseData.kind);
+                  currentPhaseId = phase.id;
+                }
               }
             }
-          }
         }
       }
     });
@@ -227,7 +227,7 @@ export const startAgentExecution = async (taskId: string, userFeedback?: string)
     // Ensure all 5 phases exist
     for (const kind of VALID_PHASES) {
       if (!emittedPhases.has(kind)) {
-        addPhase(taskId, {
+        await addPhase(taskId, {
           kind,
           title: `${kind} (auto-completed)`,
           artifact_url: `memory://phase/${taskId}/${kind}`,
@@ -237,7 +237,7 @@ export const startAgentExecution = async (taskId: string, userFeedback?: string)
       }
     }
 
-    const completedBundle = getBundle(taskId);
+    const completedBundle = await getBundle(taskId);
     if (completedBundle?.task.escrow_contract_id) {
       const artifactUrls = completedBundle.phases
         .filter((p) => p.artifact_url)
@@ -245,11 +245,11 @@ export const startAgentExecution = async (taskId: string, userFeedback?: string)
       await changeMilestoneStatus(completedBundle.task.escrow_contract_id, 0, artifactUrls).catch(() => { });
     }
 
-    setMilestoneStatus(taskId, "submitted");
-    updateTaskStatus(taskId, "complete");
+    await setMilestoneStatus(taskId, "submitted");
+    await updateTaskStatus(taskId, "complete");
   } catch (err: unknown) {
     const errMsg = err instanceof Error ? err.message : String(err);
     console.error(`Agent execution failed for task ${taskId}:`, errMsg);
-    updateTaskStatus(taskId, "failed");
+    await updateTaskStatus(taskId, "failed");
   }
 };

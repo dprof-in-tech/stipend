@@ -9,7 +9,7 @@ export const runtime = "nodejs";
 export async function POST(request: Request, context: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await context.params;
-    const bundle = getBundle(id);
+    const bundle = await getBundle(id);
 
     if (!bundle) {
       return NextResponse.json({ error: "Task not found." }, { status: 404 });
@@ -71,16 +71,16 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
 
       // If we just deployed, save the contract ID
       if (submit.contractId) {
-        setEscrowContract(id, submit.contractId);
-        setClientAddress(id, clientPublicKey || "");
+        await setEscrowContract(id, submit.contractId);
+        await setClientAddress(id, clientPublicKey || "");
       } else if (bundle.task.escrow_contract_id) {
         // If we just funded
-        setMilestoneStatus(id, "pending");
-        updateTaskStatus(id, "funded");
+        await setMilestoneStatus(id, "pending");
+        await updateTaskStatus(id, "funded");
         void startAgentExecution(id);
       }
 
-      return NextResponse.json(getBundle(id));
+      return NextResponse.json(await getBundle(id));
     }
     return NextResponse.json({ error: "Either { build: true } or signedXdr is required." }, { status: 400 });
   } catch (rawErr) {

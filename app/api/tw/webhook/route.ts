@@ -13,15 +13,15 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "taskId and milestoneStatus are required." }, { status: 400 });
   }
 
-  const bundle = getBundle(payload.taskId);
+  const bundle = await getBundle(payload.taskId);
   if (!bundle) {
     return NextResponse.json({ error: "Task not found." }, { status: 404 });
   }
 
-  setMilestoneStatus(payload.taskId, payload.milestoneStatus);
+  await setMilestoneStatus(payload.taskId, payload.milestoneStatus);
   if (payload.milestoneStatus === "disputed") {
-    updateTaskStatus(payload.taskId, "disputed");
+    await updateTaskStatus(payload.taskId, "disputed");
   }
 
-  return NextResponse.json({ task: getBundle(payload.taskId) });
+  return NextResponse.json({ task: await getBundle(payload.taskId) });
 }

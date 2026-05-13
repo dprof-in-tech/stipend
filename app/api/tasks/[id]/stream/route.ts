@@ -25,8 +25,8 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
         controller.close();
       };
 
-      const sendSnapshot = () => {
-        const bundle = getBundle(id);
+      const sendSnapshot = async () => {
+        const bundle = await getBundle(id);
 
         if (!bundle) {
           controller.enqueue(encoder.encode(`event: error\ndata: ${JSON.stringify({ error: "Task not found." })}\n\n`));
@@ -36,14 +36,14 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
 
         controller.enqueue(encoder.encode(`data: ${JSON.stringify(bundle)}\n\n`));
 
-        if (["complete", "disputed", "failed", "error"].includes(bundle.task.status)) {
+        if (["complete", "disputed", "failed", "error", "released", "refunded"].includes(bundle.task.status)) {
           controller.enqueue(encoder.encode("event: end\ndata: done\n\n"));
           close();
         }
       };
 
-      interval = setInterval(sendSnapshot, SSE_POLL_INTERVAL_MS);
-      sendSnapshot();
+      interval = setInterval(() => void sendSnapshot(), SSE_POLL_INTERVAL_MS);
+      void sendSnapshot();
 
       request.signal.addEventListener("abort", close);
     },
