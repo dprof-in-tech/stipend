@@ -71,13 +71,15 @@ export function TutorialModal({ onClose }: TutorialModalProps) {
       padding: 24,
       animation: 'fadein 0.4s ease-out'
     }}>
-      <style>{`
+      <style dangerouslySetInnerHTML={{
+        __html: `
         @keyframes fadein { from { opacity: 0; } to { opacity: 1; } }
         @keyframes slideup { 
           from { opacity: 0; transform: translateY(20px) scale(0.98); } 
           to { opacity: 1; transform: translateY(0) scale(1); } 
         }
-      `}</style>
+        `
+      }} />
       
       <div 
         key={currentStep} // Triggers re-animation on step change

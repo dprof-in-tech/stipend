@@ -15,6 +15,7 @@ export function TaskBrief({ task, editable, onQueryChange, onBudgetChange }: {
         <textarea
           value={task.query}
           onChange={(e) => onQueryChange(e.target.value)}
+          placeholder="what is the best movie of 2019?"
           style={{
             fontFamily: 'var(--geist-font-sans)', fontSize: 17, fontWeight: 500,
             color: T.ink, letterSpacing: -0.2, lineHeight: 1.4,
@@ -35,9 +36,15 @@ export function TaskBrief({ task, editable, onQueryChange, onBudgetChange }: {
             <input
               type="text"
               value={task.budget_usdc}
-              onChange={(e) => onBudgetChange(e.target.value)}
+              onChange={(e) => {
+                const val = e.target.value;
+                if (/^\d*\.?\d*$/.test(val)) {
+                  onBudgetChange(val);
+                }
+              }}
+              placeholder="5.0"
               style={{
-                fontFamily: 'var(--geist-font-mono)', fontSize: 22, fontWeight: 500,
+                fontFamily: 'var(--geist-font-mono)', fontSize: 22, fontWeight: 500, padding: 2,
                 color: T.ink, letterSpacing: -0.4, background: 'transparent',
                 width: '80px', height: 32, border: '1px solid black', borderRadius: 6,
               }}

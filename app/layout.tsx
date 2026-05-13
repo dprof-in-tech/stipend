@@ -4,6 +4,9 @@ import { GeistMono } from "geist/font/mono";
 import "./globals.css";
 
 export const metadata: Metadata = {
+  icons: {
+    icon: '/logo.svg',
+  },
   title: "Stipend — Escrow-gated AI research",
   description:
     "Give your AI research agent a budget, not your credit card. Funds lock in escrow; agent works; verifier gates release.",
