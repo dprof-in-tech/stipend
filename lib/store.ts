@@ -73,12 +73,12 @@ const db = (() => {
   }
 })();
 
-// Initialize Schema
-// Note: Postgres schema uses TEXT for everything same as SQLite for simplicity here.
-// But we use serial/uuid usually. Here we keep IDs as strings for compat.
-const initSchema = async () => {
-  await db.exec(`
-    CREATE TABLE IF NOT EXISTS tasks (
+let schemaInitialized = false;
+async function ensureSchema() {
+  if (schemaInitialized) return;
+  
+  const tables = [
+    `CREATE TABLE IF NOT EXISTS tasks (
       id TEXT PRIMARY KEY,
       query TEXT,
       budget_usdc TEXT,
@@ -87,18 +87,16 @@ const initSchema = async () => {
       client_address TEXT,
       created_at TEXT,
       release_at BIGINT
-    );
-
-    CREATE TABLE IF NOT EXISTS milestones (
+    )`,
+    `CREATE TABLE IF NOT EXISTS milestones (
       id TEXT PRIMARY KEY,
       task_id TEXT,
       title TEXT,
       amount_usdc TEXT,
       status TEXT,
       verifier_result TEXT
-    );
-
-    CREATE TABLE IF NOT EXISTS phases (
+    )`,
+    `CREATE TABLE IF NOT EXISTS phases (
       id TEXT PRIMARY KEY,
       task_id TEXT,
       kind TEXT,
@@ -107,9 +105,8 @@ const initSchema = async () => {
       artifact_hash TEXT,
       content TEXT,
       citations TEXT
-    );
-
-    CREATE TABLE IF NOT EXISTS tool_calls (
+    )`,
+    `CREATE TABLE IF NOT EXISTS tool_calls (
       id TEXT PRIMARY KEY,
       task_id TEXT,
       phase_id TEXT,
@@ -118,16 +115,20 @@ const initSchema = async () => {
       settlement TEXT,
       amount_usdc TEXT,
       tx_hash TEXT
-    );
-  `);
-};
+    )`
+  ];
 
-// Top-level initialization
-initSchema().catch(console.error);
+  for (const table of tables) {
+    await db.exec(table);
+  }
+  
+  schemaInitialized = true;
+}
 
 const formatUSDC = (value: number) => value.toFixed(4);
 
 export const getBundle = async (id: string): Promise<TaskBundle | null> => {
+  await ensureSchema();
   const task = await db.get<Task>("SELECT * FROM tasks WHERE id = ?", id);
   if (!task) return null;
 
@@ -157,6 +158,7 @@ export const getBundle = async (id: string): Promise<TaskBundle | null> => {
 };
 
 export const createTask = async (query: string, budgetUSDC: number): Promise<TaskBundle> => {
+  await ensureSchema();
   const id = randomUUID();
   const createdAt = new Date().toISOString();
   
@@ -175,6 +177,7 @@ export const createTask = async (query: string, budgetUSDC: number): Promise<Tas
 };
 
 export const updateTaskStatus = async (id: string, status: TaskStatus, releaseAt?: number) => {
+  await ensureSchema();
   if (releaseAt) {
     await db.run("UPDATE tasks SET status = ?, release_at = ? WHERE id = ?", status, releaseAt, id);
   } else {
@@ -183,18 +186,22 @@ export const updateTaskStatus = async (id: string, status: TaskStatus, releaseAt
 };
 
 export const setEscrowContract = async (id: string, contractId: string) => {
+  await ensureSchema();
   await db.run("UPDATE tasks SET escrow_contract_id = ? WHERE id = ?", contractId, id);
 };
 
 export const setClientAddress = async (id: string, address: string) => {
+  await ensureSchema();
   await db.run("UPDATE tasks SET client_address = ? WHERE id = ?", address, id);
 };
 
 export const setMilestoneStatus = async (id: string, status: Milestone["status"]) => {
+  await ensureSchema();
   await db.run("UPDATE milestones SET status = ? WHERE task_id = ?", status, id);
 };
 
 export const addPhase = async (taskId: string, input: Omit<Phase, "id" | "task_id" | "artifact_hash">) => {
+  await ensureSchema();
   const id = randomUUID();
   const artifact_hash = createHash("sha256").update(input.content).digest("hex");
   
@@ -207,6 +214,7 @@ export const addPhase = async (taskId: string, input: Omit<Phase, "id" | "task_i
 };
 
 export const addToolCall = async (taskId: string, input: Omit<ToolCall, "id">) => {
+  await ensureSchema();
   const bundle = await getBundle(taskId);
   if (!bundle) return null;
 
@@ -228,6 +236,7 @@ export const addToolCall = async (taskId: string, input: Omit<ToolCall, "id">) =
 };
 
 export const setVerifierResult = async (taskId: string, result: VerifierResult) => {
+  await ensureSchema();
   const status = result.approved ? "complete" : "disputed";
   const mStatus = result.approved ? "approved" : "disputed";
 
@@ -236,17 +245,20 @@ export const setVerifierResult = async (taskId: string, result: VerifierResult) 
 };
 
 export const getVerifierResult = async (taskId: string): Promise<VerifierResult | null> => {
+  await ensureSchema();
   const m = await db.get<{ verifier_result: string }>("SELECT verifier_result FROM milestones WHERE task_id = ?", taskId);
   return m?.verifier_result ? JSON.parse(m.verifier_result) : null;
 };
 
 export const listBundles = async (): Promise<TaskBundle[]> => {
+  await ensureSchema();
   const rows = await db.all<{ id: string }>("SELECT id FROM tasks ORDER BY created_at DESC");
   const bundles = await Promise.all(rows.map(row => getBundle(row.id)));
   return bundles.filter((b): b is TaskBundle => b !== null);
 };
 
 export const getExpiredPendingReleases = async (): Promise<{ id: string }[]> => {
+  await ensureSchema();
   const now = Date.now();
   return await db.all<{ id: string }>("SELECT id FROM tasks WHERE status = 'pending_release' AND release_at > 0 AND release_at < ?", now);
 };
