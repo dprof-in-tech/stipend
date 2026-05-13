@@ -247,9 +247,8 @@ export function StipendAppWrapper() {
     if (!seen) setTimeout(() => setShowTutorial(true), 0);
     
     const initKit = async () => {
-      console.log("Initializing Stellar Wallets Kit...");
       try {
-        const { StellarWalletsKit, Networks } = await import("@creit.tech/stellar-wallets-kit");
+        const { StellarWalletsKit, Networks, KitEventType } = await import("@creit.tech/stellar-wallets-kit");
         const { defaultModules } = await import("@creit.tech/stellar-wallets-kit/modules/utils");
         
         StellarWalletsKit.init({
@@ -257,22 +256,26 @@ export function StipendAppWrapper() {
           modules: defaultModules(),
         });
         
+        // Listen for disconnects (e.g. from the Profile Modal)
+        StellarWalletsKit.on(KitEventType.DISCONNECT, () => {
+          setClientPub(null);
+          localStorage.removeItem("stipend_wallet");
+          setWalletBalance("0.0000");
+        });
+
         swkClassRef.current = StellarWalletsKit;
-        console.log("Stellar Wallets Kit initialized successfully.");
         
         // Auto-reconnect if we have a saved wallet
         const saved = localStorage.getItem("stipend_wallet");
         if (saved) {
           try {
-            console.log("Attempting auto-reconnect for:", saved);
             const info = await StellarWalletsKit.getAddress();
             if (info && info.address) {
               setClientPub(info.address);
               fetchBalance(info.address);
-              console.log("Auto-reconnect successful.");
             }
           } catch (err) {
-            console.log("Auto-reconnect skipped or failed.");
+            // silent
           }
         }
       } catch (e) {
@@ -285,14 +288,9 @@ export function StipendAppWrapper() {
 
   const connectWallet = useCallback(async (reconnect: boolean | any = false) => {
     const isReconnect = reconnect === true;
-    console.log("connectWallet called, isReconnect:", isReconnect);
     try {
       const Kit = swkClassRef.current;
-      if (!Kit) {
-        console.warn("StellarWalletsKit not initialized yet.");
-        setError("Wallet system is still loading. Please try again in a second.");
-        return;
-      }
+      if (!Kit) return;
       
       if (isReconnect) {
         const info = await Kit.getAddress();
@@ -303,9 +301,13 @@ export function StipendAppWrapper() {
         return;
       }
       
-      console.log("Opening auth modal...");
+      if (clientPub) {
+        // If already connected, show the profile modal which allows disconnecting
+        await Kit.profileModal();
+        return;
+      }
+      
       const { address } = await Kit.authModal();
-      console.log("Wallet connected:", address);
       if (address) {
         setClientPub(address);
         localStorage.setItem("stipend_wallet", address);
@@ -315,7 +317,7 @@ export function StipendAppWrapper() {
       const msg = e instanceof Error ? e.message : String(e);
       if (!reconnect) setError(`Wallet connect failed: ${msg}`);
     }
-  }, [fetchBalance]);
+  }, [fetchBalance, clientPub]);
 
   // Remove the redundant second useEffect since we moved auto-reconnect logic inside initKit
   const stopStream = useCallback(() => {
