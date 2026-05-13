@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { TaskBundle, VerifierResult } from '@/lib/types';
-import { getAddress, isConnected, signTransaction } from "@stellar/freighter-api";
+
 
 // Sub-components
 import { T } from './stipend/theme';
@@ -229,11 +229,8 @@ export function StipendAppWrapper() {
   const [walletBalance, setWalletBalance] = useState("0.0000");
   const [showTutorial, setShowTutorial] = useState(false);
   const streamRef = useRef<EventSource | null>(null);
-
-  useEffect(() => {
-    const seen = localStorage.getItem("stipend_tutorial_seen");
-    if (!seen) setTimeout(() => setShowTutorial(true), 0);
-  }, []);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const swkClassRef = useRef<any>(null);
 
   const fetchBalance = useCallback(async (address: string) => {
     try {
@@ -245,28 +242,82 @@ export function StipendAppWrapper() {
     }
   }, []);
 
-  const connectWallet = useCallback(async (reconnect = false) => {
+  useEffect(() => {
+    const seen = localStorage.getItem("stipend_tutorial_seen");
+    if (!seen) setTimeout(() => setShowTutorial(true), 0);
+    
+    const initKit = async () => {
+      console.log("Initializing Stellar Wallets Kit...");
+      try {
+        const { StellarWalletsKit, Networks } = await import("@creit.tech/stellar-wallets-kit");
+        const { defaultModules } = await import("@creit.tech/stellar-wallets-kit/modules/utils");
+        
+        StellarWalletsKit.init({
+          network: Networks.TESTNET,
+          modules: defaultModules(),
+        });
+        
+        swkClassRef.current = StellarWalletsKit;
+        console.log("Stellar Wallets Kit initialized successfully.");
+        
+        // Auto-reconnect if we have a saved wallet
+        const saved = localStorage.getItem("stipend_wallet");
+        if (saved) {
+          try {
+            console.log("Attempting auto-reconnect for:", saved);
+            const info = await StellarWalletsKit.getAddress();
+            if (info && info.address) {
+              setClientPub(info.address);
+              fetchBalance(info.address);
+              console.log("Auto-reconnect successful.");
+            }
+          } catch (err) {
+            console.log("Auto-reconnect skipped or failed.");
+          }
+        }
+      } catch (e) {
+        console.error("Kit init failed:", e);
+      }
+    };
+    
+    initKit();
+  }, [fetchBalance]);
+
+  const connectWallet = useCallback(async (reconnect: boolean | any = false) => {
+    const isReconnect = reconnect === true;
+    console.log("connectWallet called, isReconnect:", isReconnect);
     try {
-      const ok = await isConnected();
-      if (!ok) {
-        if (!reconnect) throw new Error("Freighter not available");
+      const Kit = swkClassRef.current;
+      if (!Kit) {
+        console.warn("StellarWalletsKit not initialized yet.");
+        setError("Wallet system is still loading. Please try again in a second.");
         return;
       }
-      const info = await getAddress();
-      setClientPub(info.address);
-      localStorage.setItem("stipend_wallet", info.address);
-      fetchBalance(info.address);
+      
+      if (isReconnect) {
+        const info = await Kit.getAddress();
+        if (info && info.address) {
+          setClientPub(info.address);
+          fetchBalance(info.address);
+        }
+        return;
+      }
+      
+      console.log("Opening auth modal...");
+      const { address } = await Kit.authModal();
+      console.log("Wallet connected:", address);
+      if (address) {
+        setClientPub(address);
+        localStorage.setItem("stipend_wallet", address);
+        fetchBalance(address);
+      }
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       if (!reconnect) setError(`Wallet connect failed: ${msg}`);
     }
   }, [fetchBalance]);
 
-  useEffect(() => {
-    const saved = localStorage.getItem("stipend_wallet");
-    if (saved) setTimeout(() => connectWallet(true), 0);
-  }, [connectWallet]);
-
+  // Remove the redundant second useEffect since we moved auto-reconnect logic inside initKit
   const stopStream = useCallback(() => {
     if (streamRef.current) {
       streamRef.current.close();
@@ -301,7 +352,8 @@ export function StipendAppWrapper() {
       const taskId = data.task.id;
 
       const performOnChainStage = async () => {
-        if (!clientPub) throw new Error("Connect wallet to fund task");
+        const Kit = swkClassRef.current;
+        if (!clientPub || !Kit) throw new Error("Connect wallet to fund task");
 
         setLoadingLabel("Building transaction...");
         const buildRes = await fetch(`/api/tasks/${taskId}/fund`, {
@@ -315,17 +367,16 @@ export function StipendAppWrapper() {
         const { unsignedTransaction, type } = buildData;
         setLoadingLabel(type === "deploy" ? "Signing deployment..." : "Signing deposit...");
         
-        const signed = await signTransaction(unsignedTransaction, { 
+        const { signedTxXdr } = await Kit.signTransaction(unsignedTransaction, { 
           networkPassphrase: "Test SDF Network ; September 2015" 
         });
-        const signedXdrStr = typeof signed === 'string' ? signed : (signed as Record<string, unknown>)?.signedXDR as string || (signed as Record<string, unknown>)?.signedXdr as string || (signed as Record<string, unknown>)?.signedTxXdr as string;
-        if (!signedXdrStr) throw new Error("Signature failed");
+        if (!signedTxXdr) throw new Error("Signature failed");
 
         setLoadingLabel("Submitting to Stellar...");
         const submitRes = await fetch(`/api/tasks/${taskId}/fund`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ signedXdr: signedXdrStr, clientPublicKey: clientPub }),
+          body: JSON.stringify({ signedXdr: signedTxXdr, clientPublicKey: clientPub }),
         });
         const submitData = await submitRes.json();
         if (!submitRes.ok) throw new Error(submitData.error);
