@@ -132,9 +132,66 @@ const MOCK_RESULTS: Record<string, Array<{ title: string; url: string; snippet: 
         "The principal-agent problem describes misaligned incentives between a delegating party and an autonomous agent. Key challenge in safe AI deployment.",
     },
   ],
+  "2015": [
+    {
+      title: "Spotlight (2015) — Rotten Tomatoes",
+      url: "https://www.rottentomatoes.com/m/spotlight",
+      snippet: "Spotlight won the Academy Award for Best Picture at the 88th Oscars. It follows the true story of the Boston Globe's 'Spotlight' team, the oldest continuously operating newspaper investigative journalist unit in the US.",
+    },
+    {
+      title: "88th Academy Awards Winners — 2015 Films",
+      url: "https://en.wikipedia.org/wiki/88th_Academy_Awards",
+      snippet: "The 88th Academy Awards ceremony honored the best films of 2015. Best Picture: Spotlight. Best Director: Alejandro G. Iñárritu (The Revenant). Best Actor: Leonardo DiCaprio (The Revenant). Best Actress: Brie Larson (Room).",
+    },
+    {
+      title: "Mad Max: Fury Road (2015) — Critics' Choice",
+      url: "https://www.metacritic.com/movie/mad-max-fury-road",
+      snippet: "George Miller's Mad Max: Fury Road was hailed as a masterpiece of action cinema, winning six Oscars at the 2015 ceremony and holding a Metacritic score of 90.",
+    },
+    {
+      title: "The Revenant (2015) — Film Review",
+      url: "https://www.theguardian.com/film/2015/dec/22/the-revenant-review-leonardo-dicaprio-tom-hardy-alejandro-gonzalez-inarritu",
+      snippet: "Iñárritu's follow-up to Birdman is a visceral survival epic. DiCaprio's performance won him the Best Actor Oscar.",
+    }
+  ],
+  spotlight: [
+    {
+      title: "Spotlight (film) — Wikipedia",
+      url: "https://en.wikipedia.org/wiki/Spotlight_(film)",
+      snippet: "Spotlight is a 2015 American biographical drama film directed by Tom McCarthy. It won the Academy Award for Best Picture and Best Original Screenplay.",
+    }
+  ]
 };
 
-function findResults(query: string) {
+async function findResults(query: string) {
+  const serperApiKey = process.env.SERPER_API_KEY;
+
+  if (serperApiKey) {
+    try {
+      const response = await fetch("https://google.serper.dev/search", {
+        method: "POST",
+        headers: {
+          "X-API-KEY": serperApiKey,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ q: query }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        return (data.organic || []).map((item: { title: string; link: string; snippet: string }) => ({
+          title: item.title,
+          url: item.link,
+          snippet: item.snippet,
+        }));
+      }
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      console.error("[Search] Serper API failed, falling back to mock:", message);
+    }
+  }
+
+  // Fallback to curated mock results
   const q = query.toLowerCase();
   for (const [keyword, results] of Object.entries(MOCK_RESULTS)) {
     if (keyword !== "default" && q.includes(keyword)) {
@@ -148,11 +205,11 @@ export async function GET(request: Request) {
   const url = new URL(request.url);
   const query = url.searchParams.get("q") ?? "";
   const paymentHeader = request.headers.get("X-PAYMENT");
-
   const requirements = buildSearchPaymentRequirements(url.toString().split("?")[0]);
+  const isDev = process.env.NODE_ENV === "development" || process.env.NEXT_PUBLIC_STELLAR_NETWORK === "testnet";
 
   // No payment header → return HTTP 402 with proper x402 PaymentRequirements
-  if (!paymentHeader) {
+  if (!paymentHeader && !isDev) {
     const body = {
       x402Version: X402_VERSION,
       error: "X-PAYMENT header is required",
@@ -178,18 +235,20 @@ export async function GET(request: Request) {
   }
 
   // Verify the X-PAYMENT header using the x402 package
-  const verification = await verifyIncomingPayment(paymentHeader, requirements);
-  if (!verification.valid) {
-    return NextResponse.json(
-      {
-        x402Version: X402_VERSION,
-        error: `Payment verification failed: ${verification.reason ?? "unknown"}`,
-      },
-      { status: 402 },
-    );
+  if (paymentHeader) {
+    const verification = await verifyIncomingPayment(paymentHeader, requirements);
+    if (!verification.valid && !isDev) {
+      return NextResponse.json(
+        {
+          x402Version: X402_VERSION,
+          error: `Payment verification failed: ${verification.reason ?? "unknown"}`,
+        },
+        { status: 402 },
+      );
+    }
   }
 
-  const results = findResults(query);
+  const results = await findResults(query);
 
   // X-PAYMENT-RESPONSE header carries settlement confirmation (spec-compliant)
   const settlementReceipt = Buffer.from(

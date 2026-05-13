@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getBundle, setMilestoneStatus, setVerifierResult, updateTaskStatus } from "@/lib/store";
-import { approveMilestone, releaseFunds } from "@/lib/tw/client";
+
 import { runAdversarialVerifier } from "@/lib/verifier/engine";
 
 export const runtime = "nodejs";
@@ -30,11 +30,32 @@ export async function POST(request: Request) {
     setVerifierResult(payload.taskId, result);
 
     if (result.approved) {
-      await approveMilestone(bundle.task.escrow_contract_id);
-      setMilestoneStatus(payload.taskId, "approved");
-      await releaseFunds(bundle.task.escrow_contract_id);
+      // 1. Set to pending_release with a 2-minute buffer
+      const releaseAt = Date.now() + 120000;
+      updateTaskStatus(payload.taskId, "pending_release", releaseAt);
+      setMilestoneStatus(payload.taskId, "pending_release");
+    } else if (result.partial_payout_eligible) {
+      // TIERED SETTLEMENT: Partial Success (3.0 - 3.4)
+      console.log(`[Tiered Payout] Task ${payload.taskId} eligible for 50/50 split.`);
+      
+      const escrowId = bundle.task.escrow_contract_id;
+      const budget = parseFloat(bundle.task.budget_usdc);
+      
+      // 1. Raise Dispute
+      const { disputeEscrow, resolveDispute } = await import("@/lib/tw/client");
+      await disputeEscrow(escrowId);
+      await new Promise(resolve => setTimeout(resolve, 3000));
+      
+      // 2. Resolve with 50/50 split
+      const distributions: Array<[string, number]> = [
+        [bundle.task.client_address, budget * 0.5],
+        [(await import("@/lib/tw/client")).getAgentPublicKey(), budget * 0.5]
+      ];
+      
+      await resolveDispute(escrowId, distributions);
+      
       setMilestoneStatus(payload.taskId, "released");
-      updateTaskStatus(payload.taskId, "complete");
+      updateTaskStatus(payload.taskId, "released");
     } else {
       setMilestoneStatus(payload.taskId, "disputed");
       updateTaskStatus(payload.taskId, "disputed");
@@ -42,6 +63,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ result, task: getBundle(payload.taskId) });
   } catch (error) {
+    console.error(`[Verifier Crash] Task ${payload.taskId}:`, error);
     return NextResponse.json({ error: "Verification failed" }, { status: 500 });
   }
 }

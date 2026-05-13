@@ -7,15 +7,13 @@
 //
 // When TW_API_KEY is not set, falls back to a realistic mock (demo mode).
 
-import { Keypair, Transaction, Networks } from "@stellar/stellar-sdk";
-import { randomUUID } from "crypto";
+import { Keypair, Transaction, Networks, TransactionBuilder, Account, Operation, Asset, Memo } from "@stellar/stellar-sdk";
+import crypto, { randomUUID } from "crypto";
 
 // ── Config ────────────────────────────────────────────────────────────────────
 
 const TW_API_BASE = process.env.TW_API_BASE ?? "";
 const TW_API_KEY = process.env.TW_API_KEY ?? "";
-const TW_VIEWER_BASE =
-  process.env.TW_VIEWER_BASE ?? "https://escrow-viewer.trustlesswork.com";
 
 // USDC on Stellar testnet (Circle issuer)
 const USDC_TESTNET_ISSUER =
@@ -41,6 +39,29 @@ function getAgentKeypair(): Keypair {
   return Keypair.random();
 }
 
+
+
+/**
+ * Returns a distinct keypair for resolving disputes.
+ * Deterministically derived from the platform secret to ensure Owner != Resolver.
+ */
+function getResolverKeypair(): Keypair {
+  const platformSecret = process.env.PLATFORM_STELLAR_SECRET;
+  if (!platformSecret) throw new Error("PLATFORM_STELLAR_SECRET missing");
+  const hash = crypto.createHash('sha256').update(platformSecret + "resolver").digest();
+  const kp = Keypair.fromRawEd25519Seed(hash);
+
+  // Background fund on testnet to ensure it exists
+  const address = kp.publicKey();
+  fetch(`https://friendbot.stellar.org/?addr=${address}`).catch(() => { });
+
+  return kp;
+}
+
+export function getResolverPublicKey(): string {
+  return getResolverKeypair().publicKey();
+}
+
 export function getPlatformPublicKey(): string {
   const pub = process.env.PLATFORM_STELLAR_PUBLIC_KEY;
   if (pub) return pub;
@@ -57,6 +78,17 @@ export function getAgentPublicKey(): string {
   return "G" + "A".repeat(55);
 }
 
+
+
+export function getClientPublicKey(): string {
+  const pub = process.env.CLIENT_STELLAR_PUBLIC_KEY;
+  if (pub) return pub;
+  const secret = process.env.CLIENT_STELLAR_SECRET;
+  if (secret) return Keypair.fromSecret(secret).publicKey();
+  // Fallback: platform acts as client in demo
+  return getPlatformPublicKey();
+}
+
 // ── HTTP helpers ──────────────────────────────────────────────────────────────
 
 function isConfigured(): boolean {
@@ -67,7 +99,8 @@ function mockHash(): string {
   return randomUUID().replaceAll("-", "");
 }
 
-async function twPost<T = Record<string, unknown>>(
+async function twRequest<T = Record<string, unknown>>(
+  method: "POST" | "PUT",
   path: string,
   body: unknown,
   retries = 3,
@@ -79,7 +112,7 @@ async function twPost<T = Record<string, unknown>>(
   for (let attempt = 0; attempt < retries; attempt++) {
     try {
       const res = await fetch(`${TW_API_BASE}${path}`, {
-        method: "POST",
+        method,
         headers: {
           "Content-Type": "application/json",
           "x-api-key": TW_API_KEY,
@@ -89,34 +122,54 @@ async function twPost<T = Record<string, unknown>>(
       });
 
       if (!res.ok) {
-        // Don't retry on client errors (4xx), only on server errors (5xx)
         if (res.status >= 500 && attempt < retries - 1) {
           lastError = `HTTP ${res.status}`;
           await new Promise(resolve => setTimeout(resolve, 1000 * (attempt + 1)));
           continue;
         }
-        
+
         const text = await res.text().catch(() => res.statusText);
         throw new Error(`TW ${path} HTTP ${res.status}: ${text}`);
       }
 
       return res.json() as Promise<T>;
     } catch (rawErr) {
-      // Safely extract error message without mutating
       const errMsg = rawErr instanceof Error ? rawErr.message : String(rawErr);
       lastError = errMsg;
-      
-      // If it's the last attempt, throw a fresh error
+
       if (attempt === retries - 1) {
         throw new Error(lastError);
       }
-      
-      // Wait before retrying (exponential backoff)
+
       await new Promise(resolve => setTimeout(resolve, 1000 * (attempt + 1)));
     }
   }
 
   throw new Error(`TW request failed: ${lastError}`);
+}
+
+
+
+export async function buildDisputeXdr(
+  escrowContractId: string,
+  signerPublicKey: string,
+): Promise<{ unsignedTransaction: string }> {
+  if (!isConfigured()) throw new Error("TW not configured");
+  const res = await twRequest<{
+    unsignedTransaction?: string;
+  }>("POST", "/escrow/single-release/dispute-escrow", {
+    contractId: escrowContractId,
+    signer: signerPublicKey,
+  });
+  if (!res.unsignedTransaction) throw new Error("No unsignedTransaction from TW");
+  return { unsignedTransaction: res.unsignedTransaction };
+}
+
+export async function sendSignedXdr(
+  signedXdr: string,
+): Promise<{ status: string; message?: string; contractId?: string }> {
+  if (!isConfigured()) throw new Error("TW not configured");
+  return twRequest<{ status: string; message?: string; contractId?: string }>("POST", "/helper/send-transaction", { signedXdr });
 }
 
 // ── XDR signing ───────────────────────────────────────────────────────────────
@@ -132,11 +185,11 @@ async function buildSignSubmit(
   body: unknown,
   signerKeypair: Keypair,
 ): Promise<{ txHash: string }> {
-  const buildRes = await twPost<{
+  const buildRes = await twRequest<{
     unsignedTransaction?: string;
     status?: string;
     contractId?: string;
-  }>(path, body);
+  }>("POST", path, body);
 
   if (!buildRes.unsignedTransaction) {
     const err = new Error(`TW ${path}: no unsignedTransaction in response`);
@@ -145,7 +198,8 @@ async function buildSignSubmit(
 
   const signedXdr = signAndEncodeXdr(buildRes.unsignedTransaction, signerKeypair);
 
-  const submitRes = await twPost<{ status: string; message?: string }>(
+  const submitRes = await twRequest<{ status: string; message?: string }>(
+    "POST",
     "/helper/send-transaction",
     { signedXdr },
   );
@@ -162,6 +216,48 @@ async function buildSignSubmit(
   return { txHash };
 }
 
+/**
+ * Advanced: Bundles Deployment and Funding into a single Stellar Transaction.
+ * This allows the user to sign once and still own the contract.
+ */
+export const buildBundledDeployAndFundXdr = async (
+  taskId: string,
+  params: {
+    budgetUsdc: string;
+    agentAddress: string;
+    verifierAddress: string;
+    clientAddress: string;
+  },
+): Promise<{ unsignedTransaction: string; contractId: string }> => {
+  // 1. Build Deploy XDR
+  const deploy = await buildDeployXdr(taskId, params);
+
+  // 2. Build Fund XDR (TW allows building this even if not yet on-chain)
+  const fund = await buildFundXdr(deploy.contractId, params.clientAddress, params.budgetUsdc);
+
+  // 3. Merge them
+  const tx1 = new Transaction(deploy.unsignedTransaction, STELLAR_NETWORK);
+  const tx2 = new Transaction(fund.unsignedTransaction, STELLAR_NETWORK);
+
+  const sourceAccount = new Account(tx1.source, tx1.sequence);
+  const builder = new TransactionBuilder(sourceAccount, {
+    fee: (Number(tx1.fee) + Number(tx2.fee)).toString(),
+    networkPassphrase: STELLAR_NETWORK,
+  });
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  tx1.operations.forEach((op) => builder.addOperation(op as any));
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  tx2.operations.forEach((op) => builder.addOperation(op as any));
+
+  const bundledTx = builder.build();
+
+  return {
+    unsignedTransaction: bundledTx.toXDR(),
+    contractId: deploy.contractId,
+  };
+};
+
 // ── Public interface ──────────────────────────────────────────────────────────
 
 export interface EscrowDeployment {
@@ -170,87 +266,69 @@ export interface EscrowDeployment {
   viewerUrl: string;
 }
 
-export const deployEscrow = async (
+export const buildDeployXdr = async (
   taskId: string,
-  params?: {
-    budgetUsdc?: string;
-    agentAddress?: string;
-    verifierAddress?: string;
+  params: {
+    budgetUsdc: string;
+    agentAddress: string;
+    verifierAddress: string;
+    clientAddress: string;
   },
-): Promise<EscrowDeployment> => {
-  const platformKp = getPlatformKeypair();
-  const platformPub = platformKp.publicKey();
-  const agentPub = params?.agentAddress ?? getAgentPublicKey();
-  const amount = Number(params?.budgetUsdc ?? "1");
+): Promise<{ unsignedTransaction: string; contractId: string }> => {
+  if (!isConfigured()) throw new Error("TW not configured");
 
-  if (isConfigured()) {
-    // Step 1: build unsigned deploy TX
-    const buildRes = await twPost<{
-      unsignedTransaction?: string;
-      contractId?: string;
-      status?: string;
-    }>("/deployer/single-release", {
-      signer: platformPub,
-      engagementId: taskId,
-      title: `Stipend research task ${taskId.slice(0, 8)}`,
-      description: "Escrow-gated AI research delivery via Stipend",
-      amount,
-      platformFee: 0,
-      milestones: [{ description: "Agent delivers cited, verified research answer" }],
-      roles: {
-        approver: platformPub,          // platform verifier approves
-        serviceProvider: agentPub,     // agent is service provider
-        platformAddress: platformPub,
-        releaseSigner: platformPub,    // platform releases funds
-        disputeResolver: platformPub,  // platform resolves disputes
-        receiver: agentPub,            // agent receives payment
-      },
-      trustline: {
-        symbol: "USDC",
-        address: USDC_TESTNET_ISSUER,
-      },
-    });
+  const buildRes = await twRequest<{
+    unsignedTransaction?: string;
+    contractId?: string;
+    status?: string;
+    message?: string;
+  }>("POST", "/deployer/single-release", {
+    signer: params.clientAddress, // Client is the owner/signer
+    engagementId: taskId,
+    title: `Stipend research task ${taskId.slice(0, 8)}`,
+    description: "Escrow-gated AI research delivery via Stipend",
+    amount: Number(params.budgetUsdc),
+    platformFee: 15,
+    milestones: [{ description: "Agent research phases completed" }],
+    roles: {
+      approver: getPlatformPublicKey(), // Platform approves
+      serviceProvider: params.agentAddress,
+      platformAddress: getPlatformPublicKey(),
+      releaseSigner: getPlatformPublicKey(),
+      disputeResolver: getResolverPublicKey(), // Adjudicator judges
+      receiver: params.agentAddress,
+    },
+    trustline: {
+      symbol: "USDC",
+      address: USDC_TESTNET_ISSUER,
+    },
+  });
 
-    if (!buildRes.unsignedTransaction) {
-      const err = new Error("TW deploy: no unsignedTransaction returned");
-      throw err;
-    }
-
-    const signedXdr = signAndEncodeXdr(buildRes.unsignedTransaction, platformKp);
-
-    const submitRes = await twPost<{
-      status: string;
-      message?: string;
-      contractId?: string;
-      escrow?: { contractId?: string };
-    }>("/helper/send-transaction", { signedXdr });
-
-    if (submitRes.status !== "SUCCESS") {
-      const errMsg = submitRes.message ?? submitRes.status;
-      const err = new Error(`TW deploy failed: ${errMsg}`);
-      throw err;
-    }
-
-    const contractId =
-      submitRes.contractId ??
-      submitRes.escrow?.contractId ??
-      buildRes.contractId ??
-      `tw-${taskId.slice(0, 8)}`;
-
-    return {
-      escrowContractId: contractId,
-      deployTxHash: mockHash(),
-      viewerUrl: `${TW_VIEWER_BASE}/escrow/${contractId}`,
-    };
+  if (buildRes.status === "ERROR" || !buildRes.unsignedTransaction) {
+    throw new Error(`TW deploy build failed: ${JSON.stringify(buildRes)}`);
   }
 
-  // Mock path
-  const contractId = `tw-mock-${taskId.slice(0, 8)}`;
   return {
-    escrowContractId: contractId,
-    deployTxHash: mockHash(),
-    viewerUrl: `${TW_VIEWER_BASE}/escrow/${contractId}`,
+    unsignedTransaction: buildRes.unsignedTransaction,
+    contractId: buildRes.contractId || "",
   };
+};
+
+export async function buildFundXdr(
+  escrowId: string,
+  signerPublicKey: string,
+  amount: string,
+): Promise<{ unsignedTransaction: string }> {
+  if (!isConfigured()) throw new Error("TW not configured");
+  const res = await twRequest<{
+    unsignedTransaction?: string;
+  }>("POST", "/escrow/single-release/fund-escrow", {
+    contractId: escrowId,
+    amount: Number(amount),
+    signer: signerPublicKey,
+  });
+  if (!res.unsignedTransaction) throw new Error("No unsignedTransaction from TW fund");
+  return { unsignedTransaction: res.unsignedTransaction };
 };
 
 export const fundEscrow = async (
@@ -369,3 +447,101 @@ export const disputeEscrow = async (
 
   return { txHash: mockHash() };
 };
+
+export const resolveDispute = async (
+  escrowContractId: string,
+  distributions: Array<[string, number]>,
+): Promise<{ txHash: string }> => {
+  const resolverKp = getResolverKeypair();
+
+  if (isConfigured()) {
+    const { txHash } = await buildSignSubmit(
+      "/escrow/single-release/resolve-dispute",
+      {
+        contractId: escrowContractId,
+        disputeResolver: resolverKp.publicKey(),
+        distributions: distributions.map(([address, amount]) => ({ address, amount })),
+      },
+      resolverKp,
+    );
+    return { txHash };
+  }
+
+  return { txHash: mockHash() };
+};
+
+
+
+export const reimbursePlatformFromAgent = async (
+  amountUsdc: number,
+  memoText: string,
+): Promise<{ txHash: string }> => {
+  if (amountUsdc <= 0) return { txHash: "0" };
+
+  const agentKp = getAgentKeypair();
+  const platformPub = getPlatformPublicKey();
+  const usdcIssuer = process.env.USDC_STELLAR_ISSUER || "";
+
+  const horizonUrl = STELLAR_NETWORK === Networks.TESTNET
+    ? "https://horizon-testnet.stellar.org"
+    : "https://horizon.stellar.org";
+
+  try {
+    const res = await fetch(`${horizonUrl}/accounts/${agentKp.publicKey()}`);
+    const account = await res.json();
+
+    const tx = new TransactionBuilder(
+      new Account(agentKp.publicKey(), account.sequence),
+      {
+        fee: "1000",
+        networkPassphrase: STELLAR_NETWORK,
+      }
+    )
+      .addOperation(Operation.payment({
+        destination: platformPub,
+        asset: new Asset("USDC", usdcIssuer),
+        amount: amountUsdc.toFixed(7),
+      }))
+      .addMemo(Memo.text(memoText.slice(0, 28)))
+      .setTimeout(60)
+      .build();
+
+    tx.sign(agentKp);
+    const xdr = tx.toEnvelope().toXDR("base64");
+
+    // Submit DIRECTLY to Horizon for better error reporting on this specific non-escrow payment
+    const submitRes = await fetch(`${horizonUrl}/transactions`, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: `tx=${encodeURIComponent(xdr)}`,
+    });
+
+    const result = await submitRes.json();
+    if (!submitRes.ok) {
+      console.error("[Reimbursement] Horizon error:", JSON.stringify(result.extras?.result_codes || result));
+      throw new Error(`Horizon error: ${result.title || "Unknown"}`);
+    }
+
+    return { txHash: result.hash };
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error("[Reimbursement] Failed:", message);
+    throw err;
+  }
+};
+
+export async function getAgentBalance(): Promise<number> {
+  const pub = getAgentPublicKey();
+  const horizonUrl = STELLAR_NETWORK === Networks.TESTNET
+    ? "https://horizon-testnet.stellar.org"
+    : "https://horizon.stellar.org";
+
+  try {
+    const res = await fetch(`${horizonUrl}/accounts/${pub}`);
+    const data = await res.json() as { balances: Array<{ asset_code: string, balance: string }> };
+    const usdc = data.balances.find(b => b.asset_code === "USDC");
+    return usdc ? parseFloat(usdc.balance) : 0;
+  } catch {
+    return 0;
+  }
+}

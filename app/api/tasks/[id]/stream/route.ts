@@ -36,7 +36,7 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
 
         controller.enqueue(encoder.encode(`data: ${JSON.stringify(bundle)}\n\n`));
 
-        if (bundle.task.status === "complete" || bundle.task.status === "disputed") {
+        if (["complete", "disputed", "failed", "error"].includes(bundle.task.status)) {
           controller.enqueue(encoder.encode("event: end\ndata: done\n\n"));
           close();
         }

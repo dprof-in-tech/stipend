@@ -1,5 +1,5 @@
-export type TaskStatus = "planning" | "funded" | "running" | "complete" | "disputed";
-export type MilestoneStatus = "pending" | "submitted" | "approved" | "released" | "disputed";
+export type TaskStatus = "planning" | "funded" | "running" | "complete" | "verified_approved" | "verified_rejected" | "pending_release" | "disputed" | "released" | "refunded" | "failed" | "error";
+export type MilestoneStatus = "pending" | "submitted" | "approved" | "pending_release" | "released" | "disputed" | "refunded";
 export type PhaseKind = "decompose" | "enumerate" | "source" | "compare" | "synthesize";
 export type ToolKind = "llm" | "search" | "fetch" | "x402";
 
@@ -9,7 +9,9 @@ export interface Task {
   budget_usdc: string;
   status: TaskStatus;
   escrow_contract_id: string;
+  client_address: string;
   created_at: string;
+  release_at?: number;
 }
 
 export interface Milestone {
@@ -30,6 +32,7 @@ export interface Phase {
   artifact_hash: string;
   content: string;
   citations: string[];
+  duration_ms?: number;
 }
 
 export interface ToolCall {
@@ -64,6 +67,7 @@ export interface VerifierResult {
   fabricatedCitation: boolean;
   citationRecheck?: CitationRecheck;
   rationale?: string;
+  partial_payout_eligible?: boolean;
 }
 
 export interface TaskBundle {

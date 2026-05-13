@@ -87,7 +87,7 @@ async function ensureTrustline(label, secretKey) {
   let account;
   try {
     account = await server.loadAccount(address);
-  } catch (e) {
+  } catch {
     console.error(
       `   ❌  Account not found on ${NETWORK}. ` +
       `Fund it first: https://friendbot.stellar.org?addr=${address}`

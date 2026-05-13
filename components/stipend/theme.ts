@@ -1,0 +1,20 @@
+// Design tokens & Theme
+export const T = {
+  ink: '#11181C',
+  ink2: '#687076',
+  mute: '#889096',
+  hair: '#E6E8EB',
+  hairSoft: '#F1F3F5',
+  surface: '#FFFFFF',
+  panel: '#F8F9FA',
+  blue: '#0070F3',
+  blueSoft: '#E1F0FF',
+  emerald: '#10B981',
+  emeraldSoft: '#D1FAE5',
+  amber: '#F59E0B',
+  amberSoft: '#FEF3C7',
+  red: '#EF4444',
+  redSoft: '#FEE2E2',
+  violet: '#8B5CF6',
+  violetSoft: '#EDE9FE',
+};

@@ -7,11 +7,11 @@ Stipend is an escrow-gated AI research agent on Stellar. Funds lock in a Trustle
 ## Architecture
 
 ```
-Next.js UI (3-panel) ◄──► Stipend API ◄──► Trustless Work (Stellar escrow)
-                                │
-                          Agent Runtime ──► web_search / web_fetch (x402 micropayments)
-                                │
-                         Adversarial Verifier (Claude Haiku, temperature 0)
+Next.js UI ◄──► Stipend API (SQLite) ◄──► Trustless Work (Stellar escrow)
+                                 │
+                           Agent Runtime ──► web_search / web_fetch (x402 micropayments)
+                                 │
+                          Adversarial Verifier (Claude Haiku, temperature 0)
 ```
 
 ---
@@ -51,49 +51,20 @@ Two server-managed wallets are needed:
 - **Platform wallet** — signs all transactions; acts as approver, release signer, dispute resolver.
 - **Agent wallet** — receives payment when work is verified.
 
-**Generate new keypairs:**
+Because this is a demo environment running on the Stellar testnet, **pre-generated and pre-funded testnet keys are already provided in `.env.example`**. You do not need to generate your own or establish trustlines. Just copy the file!
+
+**Fund your Client Wallet (Freighter) with testnet USDC** — You will use the Freighter browser extension to fund tasks:
+1. Install the [Freighter wallet extension](https://freighter.app/) and switch the network to Testnet.
+2. Ensure your Freighter wallet has some testnet XLM (use Friendbot).
+3. Add the testnet USDC asset to your Freighter wallet using the issuer address: `GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5`.
+4. Send testnet USDC to your Freighter wallet address (you can ask in the [Trustless Work Telegram](https://t.me/+kmr8tGegxLU0NTA5) for a faucet drip).
+
+**[Optional] Advanced: Setting up custom keys**
+If you prefer not to use the pre-provided demo keys, you can generate your own testnet keypairs. Run:
 ```bash
-node -e "
-const {Keypair} = require('@stellar/stellar-sdk');
-const p = Keypair.random();
-const a = Keypair.random();
-console.log('PLATFORM_STELLAR_PUBLIC_KEY=' + p.publicKey());
-console.log('PLATFORM_STELLAR_SECRET=' + p.secret());
-console.log('AGENT_STELLAR_PUBLIC_KEY=' + a.publicKey());
-console.log('AGENT_STELLAR_SECRET=' + a.secret());
-"
+node -e "const {Keypair}=require('@stellar/stellar-sdk'); const k=Keypair.random(); console.log(k.publicKey(),k.secret())"
 ```
-
-**Fund both wallets with testnet XLM** (needed to pay Stellar transaction fees):
-```
-https://friendbot.stellar.org?addr=<PLATFORM_STELLAR_PUBLIC_KEY>
-https://friendbot.stellar.org?addr=<AGENT_STELLAR_PUBLIC_KEY>
-```
-
-Open each URL in a browser. You should see `"successful": true`.
-
-Add to `.env.local`:
-```env
-PLATFORM_STELLAR_PUBLIC_KEY=G...
-PLATFORM_STELLAR_SECRET=S...
-AGENT_STELLAR_PUBLIC_KEY=G...
-AGENT_STELLAR_SECRET=S...
-STELLAR_NETWORK=testnet
-USDC_STELLAR_ISSUER=GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5
-```
-
-**Establish USDC trustlines** — Stellar wallets must opt into holding USDC before they can receive it. Run this once from your local machine:
-
-```bash
-npm run setup:stellar
-```
-
-This script reads your `.env.local`, connects to Stellar testnet, creates the USDC `changeTrust` transaction for both wallets (signed with their secret keys), and submits it automatically.
-
-**Fund the platform wallet with testnet USDC** — the platform wallet deposits USDC into escrows when tasks are funded:
-- Ask in the [Trustless Work Telegram](https://t.me/+kmr8tGegxLU0NTA5) for testnet USDC
-- Or check [dapp.dev.trustlesswork.com](https://dapp.dev.trustlesswork.com) for a faucet
-- The setup script will print the exact address to send USDC to
+Generate two pairs (Platform and Agent) and update `.env.local`. Then, fund them both with XLM via Friendbot. Finally, run `npm run setup:stellar` to establish the required USDC trustlines on your custom wallets.
 
 ### 3. Run the dev server
 
@@ -151,7 +122,10 @@ You can create and inspect escrows directly at [dapp.dev.trustlesswork.com](http
 
 | Variable | Required | Purpose |
 |---|---|---|
-| `ANTHROPIC_API_KEY` | **Yes** | Claude agent (Sonnet) + verifier (Haiku) |
+| `ANTHROPIC_API_KEY` | No | Required if using `anthropic:` provider models. |
+| `OPENAI_API_KEY` | No | Required if using `openai:` provider models. |
+| `AI_GATEWAY_API_KEY` | No | **Recommended**. Single key for all models via Vercel AI Gateway. |
+| `AGENT_MODEL` | No | Model string (e.g. `anthropic/claude-3-5-sonnet-latest`). |
 | `TW_API_BASE` | No | Trustless Work API base URL (omit = mock mode) |
 | `TW_API_KEY` | No | Trustless Work API key (omit = mock mode) |
 | `PLATFORM_STELLAR_SECRET` | No | Platform wallet secret key for signing XDR |
@@ -164,7 +138,7 @@ You can create and inspect escrows directly at [dapp.dev.trustlesswork.com](http
 | `X402_SEARCH_ENDPOINT` | No | Defaults to local `/api/x402/search` |
 | `X402_FACILITATOR_URL` | No | Coinbase x402 facilitator for real settlement |
 
-Without `TW_API_KEY`, all escrow operations fall back to a realistic mock that returns plausible contract IDs and tx hashes. The agent and verifier always require a real `ANTHROPIC_API_KEY`.
+Without `AI_GATEWAY_API_KEY` or provider keys, the agent falls back to a realistic mock. The verifier uses the same model as the agent by default.
 
 ---
 
@@ -175,8 +149,11 @@ Without `TW_API_KEY`, all escrow operations fall back to a realistic mock that r
 | `/api/tasks` | POST | Create a research task |
 | `/api/tasks/[id]/fund` | POST | Deploy + fund escrow, start agent |
 | `/api/tasks/[id]/stream` | GET | SSE stream of live task bundle snapshots |
+| `/api/tasks/[id]/release` | POST | Approve milestone + release funds to agent |
+| `/api/tasks/[id]/retry` | POST | Retry a failed agent execution |
+| `/api/tasks/[id]/dispute-retry` | POST | File a dispute with feedback and retry the agent |
 | `/api/verifier` | POST | Run adversarial verifier |
-| `/api/dispute` | POST | File a dispute |
+| `/api/dispute` | POST | File a dispute + resolve with client refund |
 | `/api/x402/search` | GET | x402-enabled mock search endpoint |
 | `/api/tw/webhook` | POST | Trustless Work event webhook |
 
@@ -186,38 +163,42 @@ Without `TW_API_KEY`, all escrow operations fall back to a realistic mock that r
 
 ```
 User clicks "Fund Escrow"
-  → POST /deployer/invoke-deployer-contract  → unsigned XDR
+  → POST /deployer/single-release  → unsigned XDR
   → Sign XDR with platform Stellar keypair
-  → POST /helper/send-transaction            → contractId
+  → POST /helper/send-transaction  → contractId
 
 Agent completes research
-  → POST /escrow/change-milestone-status     → unsigned XDR
-  → Sign + submit
+  → Tool calls settled via x402
+  → Cost ticker updated live
 
 Verifier approves
-  → POST /escrow/change-milestone-approved-flag → unsigned XDR → sign + submit
-  → POST /escrow/release-funds                  → unsigned XDR → sign + submit
+  → POST /api/tasks/[id]/release
+    → approve-milestone → sign + submit
+    → release-funds     → sign + submit
+  → Final state: Released
 
 Verifier rejects / user disputes
-  → POST /escrow/change-dispute-flag         → unsigned XDR → sign + submit
+  → POST /api/dispute
+    → build-dispute-xdr → signed by client wallet
+    → send-signed-xdr
+    → resolve-dispute (platform signs refund)
+  → Final state: Refunded
 ```
 
 ---
 
 ## Key design choices
 
-- **Single-release escrow** — One financial decision gate. The agent's 5-phase structure (decompose → enumerate → source → compare → synthesize) is a reasoning trace, not an escrow milestone structure.
-- **Server-signed XDR** — Trustless Work returns unsigned Stellar transactions. The server signs them with `@stellar/stellar-sdk` using the platform keypair. No browser wallet required in v1.
-- **Adversarial verifier** — Claude Haiku at temperature 0 with a different system prompt from the agent. Scores five dimensions (interpretation, coverage, evidence, reasoning, citations) and re-fetches one citation to catch fabrication.
-- **x402 micropayments** — Web search calls route through `/api/x402/search` which implements the HTTP 402 Payment Required protocol. Tool costs are logged live in the cost ticker.
-- **In-memory store** — Tasks live in a global `Map`. Restart the server and tasks are gone. Swap `lib/store.ts` for SQLite or Postgres for persistence.
+- **Vercel AI SDK Core** — Uses the latest `ai` package for flexible model orchestration. Supports Anthropic, OpenAI, and Google via a unified interface or Vercel AI Gateway.
+- **Single-release escrow** — One financial decision gate.
+- **Server-signed XDR** — Platform transactions (Deploy, Fund, Release, Resolve) are signed on the server. Disputes are signed by the user's browser wallet (Freighter).
+- **Adversarial verifier** — Scrutinizes agent output for quality and fabrication.
+- **x402 micropayments** — Integrated into tool execution for granular cost tracking.
 
 ---
 
-## v1 limitations
+## Current limitations
 
-- **No persistent storage** — In-memory only. Document in demos.
-- **Server-managed wallets** — Secret keys are env vars. Production needs a KMS or HSM.
-- **No Freighter integration** — Funding is server-side. Principal wallet connection (Stellar Wallets Kit) is a v2 feature.
+- **Server-managed platform wallets** — Secret keys are env vars. Production needs a KMS or HSM for the platform wallet.
 - **Testnet only** — Point `TW_API_BASE` to `https://api.trustlesswork.com` and swap keys for mainnet.
 - **x402 on Base Sepolia only** — x402 micropayments run on EVM (Base Sepolia). Stellar-native micropayments are a v2 roadmap item.
