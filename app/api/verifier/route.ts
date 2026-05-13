@@ -4,6 +4,7 @@ import { getBundle, setMilestoneStatus, setVerifierResult, updateTaskStatus } fr
 import { runAdversarialVerifier } from "@/lib/verifier/engine";
 
 export const runtime = "nodejs";
+export const maxDuration = 300;
 
 export async function POST(request: Request) {
   const payload = (await request.json().catch(() => ({}))) as { taskId?: string };

@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
 import { startAgentExecution } from "@/lib/agent/runtime";
 import { getBundle, updateTaskStatus } from "@/lib/store";
+import { waitUntil } from "@vercel/functions";
 
 export const runtime = "nodejs";
+export const maxDuration = 300;
 
 export async function POST(
   request: Request,
@@ -28,7 +30,7 @@ export async function POST(
     await updateTaskStatus(id, "running", 0); // clear release_at
 
     // Trigger agent with feedback
-    void startAgentExecution(id, feedback);
+    waitUntil(startAgentExecution(id, feedback));
 
     return NextResponse.json(await getBundle(id));
   } catch (err: unknown) {

@@ -3,8 +3,10 @@ import { startAgentExecution } from "@/lib/agent/runtime";
 import { getBundle, setEscrowContract, setMilestoneStatus, updateTaskStatus, setClientAddress } from "@/lib/store";
 import { buildDeployXdr, buildFundXdr, sendSignedXdr } from "@/lib/tw/client";
 import { getServerManagedWallet } from "@/lib/stellar/wallet";
+import { waitUntil } from "@vercel/functions";
 
 export const runtime = "nodejs";
+export const maxDuration = 300; // 5 minutes max for Pro plans
 
 export async function POST(request: Request, context: { params: Promise<{ id: string }> }) {
   try {
@@ -77,7 +79,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
         // If we just funded
         await setMilestoneStatus(id, "pending");
         await updateTaskStatus(id, "funded");
-        void startAgentExecution(id);
+        waitUntil(startAgentExecution(id));
       }
 
       return NextResponse.json(await getBundle(id));

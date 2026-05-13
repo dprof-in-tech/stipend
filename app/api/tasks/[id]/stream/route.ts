@@ -5,6 +5,8 @@ export const runtime = "nodejs";
 const encoder = new TextEncoder();
 const SSE_POLL_INTERVAL_MS = 350;
 
+export const maxDuration = 300;
+
 export async function GET(request: Request, context: { params: Promise<{ id: string }> }) {
   const { id } = await context.params;
 
