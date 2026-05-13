@@ -40,17 +40,17 @@ const db = (() => {
     const sql = neon(DATABASE_URL!);
     return {
       run: async (query: string, ...params: any[]) => {
-        await (sql as any)(transformQuery(query), params);
+        await (sql as any).query(transformQuery(query), params);
       },
       get: async <T>(query: string, ...params: any[]): Promise<T | null> => {
-        const rows = await (sql as any)(transformQuery(query), params);
+        const rows = await (sql as any).query(transformQuery(query), params);
         return (rows[0] as T) || null;
       },
       all: async <T>(query: string, ...params: any[]): Promise<T[]> => {
-        return (await (sql as any)(transformQuery(query), params)) as T[];
+        return (await (sql as any).query(transformQuery(query), params)) as T[];
       },
       exec: async (query: string) => {
-        await (sql as any)(query);
+        await (sql as any).query(query);
       }
     };
   } else {
