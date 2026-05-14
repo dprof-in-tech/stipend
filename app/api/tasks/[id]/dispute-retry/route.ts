@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { startAgentExecution } from "@/lib/agent/runtime";
-import { getBundle, updateTaskStatus } from "@/lib/store";
+import { getBundle, updateTaskStatus, clearReleaseAt } from "@/lib/store";
 import { waitUntil } from "@vercel/functions";
 
 export const runtime = "nodejs";
@@ -26,8 +26,9 @@ export async function POST(
       );
     }
 
-    // Set status to running (retry)
-    await updateTaskStatus(id, "running", 0); // clear release_at
+    // Set status to running and explicitly clear release_at
+    await updateTaskStatus(id, "running", undefined);
+    await clearReleaseAt(id);
 
     // Trigger agent with feedback
     waitUntil(startAgentExecution(id, feedback));
