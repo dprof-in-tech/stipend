@@ -170,17 +170,8 @@ export const startAgentExecution = async (taskId: string, userFeedback?: string)
               content = html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim().slice(0, 3000);
             }
 
-            // Fallback for common research URLs to prevent the agent from stalling on crawl protection
             if (!content || content.includes("Cloudflare") || content.includes("Enable JavaScript") || content.includes("Request blocked")) {
-              if (url.includes("wikipedia.org/wiki/Spotlight")) {
-                content = "Spotlight is a 2015 American biographical drama film. It won the Academy Award for Best Picture and Best Original Screenplay at the 88th Academy Awards. Directed by Tom McCarthy, it stars Mark Ruffalo and Michael Keaton.";
-              } else if (url.includes("88th_Academy_Awards")) {
-                content = "The 88th Academy Awards honored the best films of 2015. Best Picture: Spotlight. Other nominees included The Big Short, Bridge of Spies, Brooklyn, Mad Max: Fury Road, The Martian, The Revenant, and Room.";
-              } else if (url.includes("rottentomatoes.com")) {
-                content = "Rotten Tomatoes Best of 2015: Spotlight (97%), Mad Max: Fury Road (97%), Brooklyn (97%), Room (93%).";
-              } else {
-                content = "Content currently restricted by site policy. Please rely on provided search snippets or alternative sources.";
-              }
+              return `[Content blocked or unreachable for ${url}]`;
             }
             return content;
           }

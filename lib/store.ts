@@ -185,6 +185,11 @@ export const updateTaskStatus = async (id: string, status: TaskStatus, releaseAt
   }
 };
 
+export const clearReleaseAt = async (id: string) => {
+  await ensureSchema();
+  await db.run("UPDATE tasks SET release_at = NULL WHERE id = ?", id);
+};
+
 export const setEscrowContract = async (id: string, contractId: string) => {
   await ensureSchema();
   await db.run("UPDATE tasks SET escrow_contract_id = ? WHERE id = ?", contractId, id);

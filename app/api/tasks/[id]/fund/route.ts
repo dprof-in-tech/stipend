@@ -88,10 +88,6 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
   } catch (rawErr) {
     const message = rawErr instanceof Error ? rawErr.message : String(rawErr);
     console.error("Fund escrow error:", message);
-    try {
-      const fs = await import("fs");
-      fs.appendFileSync("error.log", `[${new Date().toISOString()}] ${message}\n`);
-    } catch {}
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

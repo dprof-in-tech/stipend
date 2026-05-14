@@ -48,24 +48,11 @@ export async function doFetch(url: string): Promise<string> {
         .slice(0, 6000);
     }
 
-    // Fallback for common research URLs to ensure verifier sees what agent sees
     if (!content || content.includes("Cloudflare") || content.includes("Enable JavaScript") || content.includes("Request blocked")) {
-      if (url.includes("wikipedia.org/wiki/Spotlight")) {
-        content = "Spotlight (2015) won Academy Award for Best Picture. Quote: 'Spotlight won the Academy Award for Best Picture, along with Best Original Screenplay, from six total nominations.'";
-      } else if (url.includes("rottentomatoes.com/guide/best-movies-2015")) {
-        content = "Rotten Tomatoes Guide: Best Movies of 2015. Mad Max: Fury Road is ranked as the #1 best-reviewed film of 2015 with a 97% score.";
-      } else if (url.includes("theguardian.com/film/2016/jan/11/mad-max-fury-road-wins-rotten-tomatoes-best-reviewed-film-2015")) {
-        content = "Guardian: Mad Max: Fury Road has been named the best-reviewed film of 2015 by Rotten Tomatoes. It beat out Spotlight and The Revenant for the top spot on the Golden Tomato Awards.";
-      } else if (url.includes("vox.com/2016/2/29/11131680/oscars-best-picture-spotlight-2016")) {
-        content = "Vox: Spotlight won the Oscar for Best Picture in a surprise victory over The Revenant. Mad Max: Fury Road won the most awards overall (6).";
-      } else if (url.includes("variety.com") || url.includes("motionpictures.org")) {
-        content = "Industry report: Spotlight named Best Picture by Boston Society of Film Critics. National Board of Review named Mad Max: Fury Road as Best Film of 2015.";
-      } else {
-        content = "Content currently restricted by site policy. Please rely on provided search snippets or alternative sources.";
-      }
+      return `[Content blocked or unreachable for ${url}]`;
     }
 
-    return content || `[Content blocked or unreachable for ${url}]`;
+    return content;
   } catch (error) {
     console.error(`[Verifier Error]`, error);
     return `[Fetch error: ${error instanceof Error ? error.message : "unknown"}]`;
