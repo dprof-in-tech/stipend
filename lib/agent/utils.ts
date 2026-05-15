@@ -1,4 +1,5 @@
 import type { PhaseKind } from "@/lib/types";
+import FirecrawlApp from "@mendable/firecrawl-js";
 
 export function extractPhaseBlocks(
   text: string,
@@ -49,6 +50,18 @@ export async function doFetch(url: string): Promise<string> {
     }
 
     if (!content || content.includes("Cloudflare") || content.includes("Enable JavaScript") || content.includes("Request blocked")) {
+      const firecrawlKey = process.env.FIRECRAWL_API_KEY;
+      if (firecrawlKey) {
+        try {
+          const fc = new FirecrawlApp({ apiKey: firecrawlKey });
+          const fcRes = await fc.scrape(url, { formats: ["markdown"] });
+          if (fcRes.markdown) {
+            return fcRes.markdown.slice(0, 6000);
+          }
+        } catch (fcErr) {
+          console.warn(`[Firecrawl] Failed for ${url}:`, fcErr instanceof Error ? fcErr.message : String(fcErr));
+        }
+      }
       return `[Content blocked or unreachable for ${url}]`;
     }
 

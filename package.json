@@ -16,6 +16,7 @@
     "@ai-sdk/openai": "^3.0.63",
     "@anthropic-ai/sdk": "^0.95.1",
     "@creit.tech/stellar-wallets-kit": "^2.2.0",
+    "@mendable/firecrawl-js": "^4.23.0",
     "@neondatabase/serverless": "^1.1.0",
     "@stellar/stellar-sdk": "^15.1.0",
     "@types/better-sqlite3": "^7.6.13",
