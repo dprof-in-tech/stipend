@@ -17,6 +17,7 @@ import type { PhaseKind } from "@/lib/types";
 
 import { AGENT_SYSTEM_PROMPT } from "@/lib/prompts";
 import { extractPhaseBlocks } from "@/lib/agent/utils";
+import FirecrawlApp from "@mendable/firecrawl-js";
 
 const X402_SEARCH_ENDPOINT =
   process.env.X402_SEARCH_ENDPOINT ?? "http://localhost:3000/api/x402/search";
@@ -171,6 +172,18 @@ export const startAgentExecution = async (taskId: string, userFeedback?: string)
             }
 
             if (!content || content.includes("Cloudflare") || content.includes("Enable JavaScript") || content.includes("Request blocked")) {
+              const firecrawlKey = process.env.FIRECRAWL_API_KEY;
+              if (firecrawlKey) {
+                try {
+                  const fc = new FirecrawlApp({ apiKey: firecrawlKey });
+                  const fcRes = await fc.scrape(url, { formats: ["markdown"] });
+                  if (fcRes.markdown) {
+                    return fcRes.markdown.slice(0, 3000);
+                  }
+                } catch (fcErr) {
+                  console.warn(`[Firecrawl] Failed for ${url}:`, fcErr instanceof Error ? fcErr.message : String(fcErr));
+                }
+              }
               return `[Content blocked or unreachable for ${url}]`;
             }
             return content;
