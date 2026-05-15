@@ -4,6 +4,9 @@
 
 Stipend is an escrow-gated AI research agent on Stellar. Funds lock in a Trustless Work escrow when you ask a question. The agent researches with real web tools. An adversarial LLM verifier reviews the output. Funds release only on verified delivery.
 
+<img width="5760" height="3240" alt="03 _ Technical schematic _ architecture diagram" src="https://github.com/user-attachments/assets/37dc1b47-c049-4f8f-9f73-9c401caa5b89" />
+
+
 ## Architecture
 
 ```
